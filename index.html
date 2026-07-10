@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drveće Banjaluke — Bulevar Živojina Mišića</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --canopy-dark:   #1f3a2e;
+    --moss:          #4c7a5d;
+    --bark:          #6b4a34;
+    --river:         #3c7a89;
+    --paper:         #efe9dd;
+    --paper-hi:      #f7f4ec;
+    --amber:         #d8a24a;
+    --ink:           #1c2420;
+    --line:          rgba(28,36,32,0.12);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family:'Inter', sans-serif;
+    color:var(--ink);
+    background:var(--paper);
+  }
+
+  h1,h2,h3, .display{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  #app{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: 64px 1fr;
+    height:100vh;
+    width:100vw;
+  }
+
+  header{
+    grid-column: 1 / -1;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+    background:var(--canopy-dark);
+    color:var(--paper-hi);
+    border-bottom:1px solid rgba(0,0,0,0.2);
+  }
+  header .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  header .brand svg{ flex-shrink:0; }
+  header h1{
+    font-size:18px;
+    margin:0;
+    color:var(--paper-hi);
+    line-height:1.1;
+  }
+  header .sub{
+    font-size:11px;
+    opacity:0.7;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:0.02em;
+  }
+  header .count{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    background:rgba(255,255,255,0.08);
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  header .count b{ color:var(--amber); }
+
+  #sidebar{
+    border-right:1px solid var(--line);
+    background:var(--paper-hi);
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+  }
+  #sidebar .zone-label{
+    padding:16px 18px 8px;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--moss);
+    font-weight:600;
+  }
+  .tree-item{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 18px;
+    cursor:pointer;
+    border-bottom:1px solid var(--line);
+    transition:background 0.15s ease;
+  }
+  .tree-item:hover, .tree-item.active{
+    background:var(--paper);
+  }
+  .tree-item.active{ box-shadow: inset 3px 0 0 var(--moss); }
+
+  .health-dot{
+    width:10px; height:10px; border-radius:50%;
+    margin-top:5px; flex-shrink:0;
+  }
+  .health-healthy{ background:var(--moss); }
+  .health-stressed{ background:var(--amber); }
+  .health-diseased{ background:#b0503a; }
+  .health-dead, .health-removed{ background:#8a8a8a; }
+
+  .tree-item .info b{ font-size:14px; display:block; }
+  .tree-item .info span{ font-size:12px; color:#5a625c; }
+  .scan-badge{
+    font-size:10px;
+    font-family:'IBM Plex Mono', monospace;
+    background:var(--river);
+    color:white;
+    padding:1px 6px;
+    border-radius:8px;
+    margin-left:6px;
+  }
+
+  #map{ width:100%; height:100%; }
+
+  .tree-marker{
+    width:22px; height:22px;
+    cursor:pointer;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+  }
+
+  /* detail panel */
+  #detail{
+    position:absolute;
+    top:84px; right:20px;
+    width:380px;
+    max-height:calc(100vh - 104px);
+    overflow-y:auto;
+    background:var(--paper-hi);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.18);
+    transform:translateX(420px);
+    transition:transform 0.28s ease;
+    z-index:5;
+  }
+  #detail.open{ transform:translateX(0); }
+  /* quick fix: ensure map tiles stay behind the detail panel */
+  #map .leaflet-pane,
+  #map .leaflet-tile-pane { z-index: 0; }
+  #detail { z-index: 10; }
+
+
+  #detail .model-frame{
+    width:100%; height:220px;
+    background:linear-gradient(180deg, var(--canopy-dark), #142a20);
+    position:relative;
+  }
+  #detail model-viewer{ width:100%; height:100%; }
+  #detail .no-scan{
+    display:flex; align-items:center; justify-content:center;
+    height:100%; color:rgba(255,255,255,0.55);
+    font-size:13px; text-align:center; padding:0 30px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+
+  #detail .body{ padding:18px 20px 22px; }
+  #detail h2{ font-size:20px; margin:0 0 2px; }
+  #detail .latin{ font-style:italic; color:#5a625c; font-size:13px; margin-bottom:14px; }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px 16px;
+    margin:14px 0;
+    padding:14px 0;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .stat-grid div span{ display:block; }
+  .stat-grid .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:#5a625c; }
+  .stat-grid .value{ font-family:'IBM Plex Mono', monospace; font-size:14px; margin-top:2px; }
+
+  .close-btn{
+    position:absolute; top:10px; right:10px;
+    width:28px; height:28px; border-radius:50%;
+    background:rgba(0,0,0,0.35); color:white;
+    border:none; cursor:pointer; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2;
+  }
+
+  .add-btn{
+    margin:16px 18px;
+    padding:10px 14px;
+    background:var(--moss);
+    color:white;
+    border:none;
+    border-radius:8px;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .add-btn:hover{ background:#3f6a4f; }
+
+  .footnote{
+    padding:10px 18px 18px;
+    font-size:11px;
+    color:#7a8079;
+    line-height:1.5;
+  }
+
+  /* map popup styling */
+  .leaflet-popup-content-wrapper{
+    border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.2);
+  }
+  .leaflet-popup-content{ margin:14px 16px; }
+  .leaflet-popup-tip{ box-shadow:none; }
+
+  .admin-only{ display:none; }
+  .is-admin .admin-only{ display:block; }
+  button.admin-only{ display:none; }
+  .is-admin button.admin-only{ display:inline-block; }
+
+  #login-btn{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    background:rgba(255,255,255,0.08);
+    color:var(--paper-hi);
+    border:1px solid rgba(255,255,255,0.15);
+    padding:6px 14px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:background 0.15s;
+  }
+  #login-btn:hover{ background:rgba(255,255,255,0.15); }
+
+  /* login modal */
+  #login-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  #login-modal.open{ display:flex; }
+  .login-box{
+    background:var(--paper-hi);
+    padding:28px 24px 22px;
+    border-radius:12px;
+    width:300px;
+    box-shadow:0 20px 48px rgba(0,0,0,0.3);
+  }
+  .login-box h3{ margin:0 0 16px; font-size:17px; }
+  .login-box input{
+    width:100%;
+    padding:8px 10px;
+    margin-bottom:10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+  }
+  .login-box .login-actions{
+    display:flex;
+    gap:8px;
+    margin-top:14px;
+  }
+  .login-box .login-actions button{
+    flex:1;
+    padding:8px;
+    border-radius:6px;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M12 21V12.5" stroke="#a56a2e" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="#a56a2e" stroke-width="1.1" stroke-linecap="round"/>
+        <circle cx="12" cy="7.2" r="4.6" fill="#d8a24a"/>
+        <circle cx="7.4" cy="10" r="3.1" fill="#d8a24a"/>
+        <circle cx="16.6" cy="10" r="3.1" fill="#d8a24a"/>
+      </svg>
+      <div>
+        <h1>Drveće Banjaluke</h1>
+        <div class="sub">stablo-po-stablo · 3D katalog</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="count"><b id="tree-count">0</b> stabala popisano</div>
+      <button id="login-btn" onclick="toggleLogin()">🔐 Admin</button>
+    </div>
+  </header>
+
+  <div id="sidebar">
+    <div class="zone-label">Bulevar Živojina Mišića</div>
+    <div id="tree-list"></div>
+    <button class="add-btn admin-only" onclick="if(window.isAdmin){alert('Klikni na mapu na mjestu gdje želiš dodati stablo — otvorit će se obrazac.');}else{toggleLogin();}">+ Dodaj stablo</button>
+    <p class="footnote">🔐 Prijavi se kao admin za dodavanje i uređivanje stabala. Klikni na stablo za detalje.</p>
+  </div>
+
+  <div style="position:relative;">
+    <div id="map"></div>
+
+    <div id="detail">
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+      <div class="model-frame" id="model-frame">
+        <div class="no-scan">Za ovo stablo još nema 3D skena.</div>
+      </div>
+      <div class="body">
+        <h2 id="d-name"></h2>
+        <div class="latin" id="d-latin"></div>
+        <div class="stat-grid">
+          <div><span class="label">Visina</span><span class="value" id="d-height"></span></div>
+          <div><span class="label">Prečnik debla</span><span class="value" id="d-trunk"></span></div>
+          <div><span class="label">Zasađeno</span><span class="value" id="d-planted"></span></div>
+          <div><span class="label">Stanje</span><span class="value" id="d-health"></span></div>
+        </div>
+        <p id="d-notes" style="font-size:13px; line-height:1.6; color:#3a423c;"></p>
+
+        <!-- Edit section (hidden until "Uredi" is clicked) -->
+        <div id="d-edit-section" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <div class="stat-grid" style="grid-template-columns:1fr;">
+            <div>
+              <span class="label">Visina (m)</span>
+              <input id="e-height" type="number" step="0.1" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:'IBM Plex Mono',monospace;margin-top:2px;">
+            </div>
+            <div>
+              <span class="label">Prečnik debla (cm)</span>
+              <input id="e-trunk" type="number" step="0.1" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:'IBM Plex Mono',monospace;margin-top:2px;">
+            </div>
+            <div>
+              <span class="label">Zasađeno (godina)</span>
+              <input id="e-planted" type="number" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:'IBM Plex Mono',monospace;margin-top:2px;">
+            </div>
+            <div>
+              <span class="label">Stanje</span>
+              <select id="e-health" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;margin-top:2px;">
+                <option value="healthy">Zdravo</option>
+                <option value="stressed">Pod stresom</option>
+                <option value="diseased">Bolesno</option>
+                <option value="dead">Mrtvo</option>
+                <option value="removed">Uklonjeno</option>
+              </select>
+            </div>
+          </div>
+          <label class="label" style="display:block;margin-top:8px;">Napomene</label>
+          <textarea id="e-notes" rows="3" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;margin-top:2px;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button id="d-save-btn" onclick="saveTreeEdit()" style="flex:1;padding:8px;background:var(--moss);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">Sačuvaj</button>
+            <button id="d-cancel-btn" onclick="cancelEdit()" style="flex:1;padding:8px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;font-weight:500;font-size:13px;cursor:pointer;">Odustani</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Login modal -->
+<div id="login-modal">
+  <div class="login-box">
+    <h3>🔐 Admin prijava</h3>
+    <p style="font-size:12px;color:#5a625c;margin:0 0 12px;">Samo vlasnik može dodavati i uređivati stabla.</p>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="email">
+    <input id="login-password" type="password" placeholder="Lozinka" autocomplete="current-password">
+    <div id="login-error" style="font-size:12px;color:#b0503a;display:none;margin-bottom:8px;"></div>
+    <div class="login-actions">
+      <button onclick="doLogin()" style="background:var(--moss);color:white;border:none;">Prijavi se</button>
+      <button onclick="closeLoginModal()" style="background:transparent;color:var(--ink);border:1px solid var(--line);">Odustani</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ============================================================
+   SUPABASE CONNECTION
+   Your Supabase project URL and anon key.
+   ============================================================ */
+const SUPABASE_URL = 'https://qcjnnvsaskdhoyschclq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjam5udnNhc2tkaG95c2NoY2xxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NzIzMTIsImV4cCI6MjA5OTI0ODMxMn0.lNODpkRkBNp36ETdXZZf-m6l9hyEpb7HwwWUjrpooxE';
+
+let supabase = null;
+let usingRealData = false;
+
+try {
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  usingRealData = true;
+
+  // Check if already logged in (session persists in browser)
+  const { data: { session } } = await supabase.auth.getSession();
+  window.isAdmin = !!session;
+} catch (err) {
+  console.warn('Supabase init failed, running without database:', err);
+}
+
+async function loadTrees(){
+  if (!supabase) return [];
+
+  const { data, error } = await supabase.from('tree_map').select('*');
+  if (error) {
+    console.error('Supabase fetch failed:', error);
+    window.supabaseError = error.message;
+    return [];
+  }
+  return data.map(row => ({
+    id: row.id,
+    name: row.local_name || row.latin_name || 'Nepoznata vrsta',
+    latin: row.latin_name || '',
+    lat: row.lat,
+    lng: row.lng,
+    height: row.height_m,
+    trunk: row.trunk_diameter_cm,
+    planted: row.planted_year,
+    health: row.health_status || 'healthy',
+    notes: row.condition_notes,
+    model: row.latest_model_path
+      ? `${SUPABASE_URL}/storage/v1/object/public/tree-models/${row.latest_model_path}`
+      : null
+  }));
+}
+
+async function loadSpecies(){
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('species').select('id, local_name, latin_name').order('local_name');
+  if (error) { console.error('Species fetch failed:', error); return []; }
+  return data;
+}
+
+window.supabase = supabase;
+window.usingRealData = usingRealData;
+window.trees = await loadTrees();
+window.speciesList = await loadSpecies();
+window.dispatchEvent(new Event('trees-ready'));
+</script>
+
+<script>
+window.addEventListener('trees-ready', () => {
+const trees = window.trees;
+
+const healthLabel = {
+  healthy: "Zdravo", stressed: "Pod stresom", diseased: "Bolesno", dead: "Mrtvo", removed: "Uklonjeno"
+};
+
+let activeMarker = null;
+
+// ---- auth state ----
+function refreshAdminUI(){
+  const isAdmin = window.isAdmin;
+  const app = document.getElementById('app');
+  app.classList.toggle('is-admin', isAdmin);
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) loginBtn.textContent = isAdmin ? '🚪 Odjava' : '🔐 Admin';
+}
+
+refreshAdminUI();
+
+// ---- login modal ----
+window.toggleLogin = function(){
+  if (window.isAdmin) {
+    // logout
+    window.supabase.auth.signOut();
+    window.isAdmin = false;
+    refreshAdminUI();
+    closeDetail();
+    return;
+  }
+  document.getElementById('login-modal').classList.add('open');
+  document.getElementById('login-email').focus();
+};
+window.closeLoginModal = function(){
+  document.getElementById('login-modal').classList.remove('open');
+  document.getElementById('login-error').style.display = 'none';
+};
+window.doLogin = async function(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+
+  if (!email || !password) {
+    errEl.textContent = 'Unesi email i lozinku.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = 'Pogrešan email ili lozinka.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  window.isAdmin = true;
+  document.getElementById('login-password').value = '';
+  closeLoginModal();
+  refreshAdminUI();
+};
+
+// ---- sidebar list ----
+document.getElementById('tree-count').textContent = trees.length;
+
+trees.forEach(t => addSidebarItem(t));
+
+// ---- map ----
+if (typeof L === 'undefined') {
+  document.getElementById('map').innerHTML =
+    '<div style="padding:24px;font-family:sans-serif;color:#6b4a34;">' +
+    'Karta se nije učitala jer je blokiran pristup CDN-u. ' +
+    'Provjeri internet konekciju ili isključi ad-blocker za ovu stranicu.</div>';
+  throw new Error('Leaflet failed to load from CDN — check network/ad-blocker.');
+}
+
+const map = L.map('map', { zoomControl: true }).setView([44.7730, 17.1938], 15.5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19
+}).addTo(map);
+
+trees.forEach(t => createTreeMarker(t));
+
+function healthColor(h){
+  return { healthy:'#4c7a5d', stressed:'#d8a24a', diseased:'#b0503a', dead:'#8a8a8a', removed:'#8a8a8a' }[h] || '#4c7a5d';
+}
+
+// ---- helper: create a tree marker on the map ----
+function createTreeMarker(t){
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="tree-marker"><svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 21V12.5" stroke="#3a2a18" stroke-width="1.3"/>
+        <circle cx="12" cy="7.5" r="4.6" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+        <circle cx="7.6" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+        <circle cx="16.4" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+      </svg></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 20]
+  });
+  const marker = L.marker([t.lat, t.lng], { icon }).addTo(map);
+  marker.on('click', () => selectTree(t.id, true));
+  t._marker = marker;
+}
+
+// ---- helper: add a sidebar item for a tree ----
+function addSidebarItem(t){
+  const item = document.createElement('div');
+  item.className = 'tree-item';
+  item.id = 'item-' + t.id;
+  item.onclick = () => selectTree(t.id, true);
+  item.innerHTML = `
+    <div class="health-dot health-${t.health}"></div>
+    <div class="info">
+      <b>${t.name} ${t.model ? '<span class="scan-badge">3D</span>' : ''}</b>
+      <span>${t.latin}${t.planted ? ' · zasađeno ' + t.planted + '.' : ''}</span>
+    </div>`;
+  document.getElementById('tree-list').appendChild(item);
+}
+
+// ---- MAP CLICK: add a new tree (admin only) ----
+map.on('click', function(e) {
+  if (!window.supabase || !window.isAdmin) return;
+
+  const speciesOptions = (window.speciesList || [])
+    .map(s => `<option value="${s.id}">${s.local_name || s.latin_name}</option>`)
+    .join('');
+
+  const formHtml = `
+    <div style="font-family:'Inter',sans-serif;min-width:200px;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;">Dodaj stablo</div>
+      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Vrsta</label>
+      <select id="popup-species" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
+        ${speciesOptions}
+      </select>
+      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Stanje</label>
+      <select id="popup-health" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;font-size:13px;">
+        <option value="healthy">Zdravo</option>
+        <option value="stressed">Pod stresom</option>
+        <option value="diseased">Bolesno</option>
+      </select>
+      <button onclick="addTreeAt(${e.latlng.lat}, ${e.latlng.lng})"
+        style="width:100%;padding:8px;background:#4c7a5d;color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+        Dodaj stablo
+      </button>
+    </div>`;
+
+  L.popup({ className: 'add-tree-popup' })
+    .setLatLng(e.latlng)
+    .setContent(formHtml)
+    .openOn(map);
+});
+
+// ---- add tree to Supabase ----
+window.addTreeAt = async function(lat, lng) {
+  const speciesId = parseInt(document.getElementById('popup-species').value);
+  const health = document.getElementById('popup-health').value;
+  const btn = document.querySelector('.add-tree-popup button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Dodajem...'; }
+
+  // Get current user ID so you own the tree
+  const { data: { user } } = await window.supabase.auth.getUser();
+
+  const { data, error } = await window.supabase.from('tree').insert({
+    location: `SRID=4326;POINT(${lng} ${lat})`,
+    species_id: speciesId,
+    zone_id: 1,
+    health_status: health,
+    added_by: user?.id || null,
+  }).select();
+
+  if (error) {
+    alert('Greška pri dodavanju: ' + error.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Dodaj stablo'; }
+    return;
+  }
+
+  map.closePopup();
+
+  // Build the tree object for the UI
+  const species = (window.speciesList || []).find(s => s.id === speciesId);
+  const name = species?.local_name || species?.latin_name || 'Nepoznata vrsta';
+  const latin = species?.latin_name || '';
+  const treeUuid = data?.[0]?.id;
+
+  const treeObj = {
+    id: treeUuid || 'temp-' + Date.now(),
+    name,
+    latin,
+    lat,
+    lng,
+    height: null,
+    trunk: null,
+    planted: null,
+    health,
+    notes: '',
+    model: null
+  };
+
+  trees.push(treeObj);
+  createTreeMarker(treeObj);
+  addSidebarItem(treeObj);
+  document.getElementById('tree-count').textContent = trees.length;
+  selectTree(treeObj.id, true);
+};
+
+// ---- EDIT functionality (admin only) ----
+let editingTreeId = null;
+
+function selectTree(id, fly){
+  const t = trees.find(x => x.id === id);
+  if (!t) return;
+
+  editingTreeId = id;
+
+  document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('item-' + id).classList.add('active');
+
+  document.getElementById('d-name').textContent = t.name;
+  document.getElementById('d-latin').textContent = t.latin;
+  document.getElementById('d-height').textContent = t.height ? t.height + ' m' : '—';
+  document.getElementById('d-trunk').textContent = t.trunk ? t.trunk + ' cm' : '—';
+  document.getElementById('d-planted').textContent = t.planted ? t.planted + '.' : '—';
+  document.getElementById('d-health').textContent = healthLabel[t.health];
+  document.getElementById('d-notes').textContent = t.notes || 'Nema dodatnih napomena.';
+
+  const frame = document.getElementById('model-frame');
+  frame.innerHTML = t.model
+    ? `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`
+    : `<div class="no-scan">Za ovo stablo još nema 3D skena.</div>`;
+
+  document.getElementById('d-edit-section').style.display = 'none';
+
+  // Only show edit button when logged in as admin
+  let editBtn = document.getElementById('d-edit-btn');
+  if (window.isAdmin) {
+    if (!editBtn) {
+      const body = document.querySelector('#detail .body');
+      editBtn = document.createElement('button');
+      editBtn.id = 'd-edit-btn';
+      editBtn.textContent = '✏️ Uredi podatke';
+      editBtn.style.cssText = 'width:100%;padding:8px;background:transparent;color:var(--moss);border:1px solid var(--moss);border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-top:10px;';
+      editBtn.onclick = enableEdit;
+      body.appendChild(editBtn);
+    }
+    editBtn.style.display = 'block';
+  } else {
+    if (editBtn) editBtn.style.display = 'none';
+  }
+
+  document.getElementById('detail').classList.add('open');
+
+  if (fly) map.flyTo([t.lat, t.lng], 17.5, { duration: 0.9 });
+}
+
+function enableEdit(){
+  const t = trees.find(x => x.id === editingTreeId);
+  if (!t) return;
+
+  document.getElementById('e-height').value = t.height || '';
+  document.getElementById('e-trunk').value = t.trunk || '';
+  document.getElementById('e-planted').value = t.planted || '';
+  document.getElementById('e-health').value = t.health;
+  document.getElementById('e-notes').value = t.notes || '';
+
+  document.getElementById('d-edit-section').style.display = 'block';
+  document.getElementById('d-edit-btn').style.display = 'none';
+}
+
+window.saveTreeEdit = async function(){
+  const t = trees.find(x => x.id === editingTreeId);
+  if (!t || !window.supabase) return;
+
+  const height = parseFloat(document.getElementById('e-height').value) || null;
+  const trunk = parseFloat(document.getElementById('e-trunk').value) || null;
+  const planted = parseInt(document.getElementById('e-planted').value) || null;
+  const health = document.getElementById('e-health').value;
+  const notes = document.getElementById('e-notes').value.trim() || null;
+
+  const btn = document.getElementById('d-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Spremam...';
+
+  const { error } = await window.supabase.from('tree').update({
+    height_m: height,
+    trunk_diameter_cm: trunk,
+    planted_year: planted,
+    health_status: health,
+    condition_notes: notes,
+  }).eq('id', editingTreeId);
+
+  if (error) {
+    alert('Greška pri spremanju: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = 'Sačuvaj';
+    return;
+  }
+
+  t.height = height;
+  t.trunk = trunk;
+  t.planted = planted;
+  t.health = health;
+  t.notes = notes;
+
+  selectTree(editingTreeId, false);
+  const item = document.getElementById('item-' + editingTreeId);
+  if (item) {
+    const dot = item.querySelector('.health-dot');
+    if (dot) dot.className = 'health-dot health-' + health;
+  }
+  if (t._marker) {
+    map.removeLayer(t._marker);
+    createTreeMarker(t);
+  }
+
+  btn.textContent = 'Sačuvaj';
+  btn.disabled = false;
+};
+
+window.cancelEdit = function(){
+  document.getElementById('d-edit-section').style.display = 'none';
+  document.getElementById('d-edit-btn').style.display = 'block';
+};
+
+function closeDetail(){
+  document.getElementById('detail').classList.remove('open');
+  document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('d-edit-section').style.display = 'none';
+  const editBtn = document.getElementById('d-edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
+  editingTreeId = null;
+}
+
+window.selectTree = selectTree;
+window.closeDetail = closeDetail;
+
+}); // end trees-ready listener
+</script>
+</body>
+</html>
