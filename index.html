@@ -102,60 +102,6 @@
     color:var(--moss);
     font-weight:600;
   }
-
-  /* ---- district catalogue (accordion) ---- */
-  .district-group{
-    border-bottom:1px solid var(--line);
-  }
-  .district-header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    padding:12px 18px;
-    cursor:pointer;
-    background:var(--paper-hi);
-    position:sticky;
-    top:0;
-    z-index:1;
-  }
-  .district-header:hover{ background:var(--paper); }
-  .district-header .name{
-    font-family:'Fraunces', serif;
-    font-weight:600;
-    font-size:15px;
-    color:var(--canopy-dark);
-  }
-  .district-header .meta{
-    display:flex;
-    align-items:center;
-    gap:8px;
-  }
-  .district-header .count{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px;
-    color:var(--moss);
-    background:rgba(76,122,93,0.12);
-    padding:2px 8px;
-    border-radius:10px;
-  }
-  .district-header .chevron{
-    width:9px; height:9px;
-    border-right:1.6px solid var(--moss);
-    border-bottom:1.6px solid var(--moss);
-    transform:rotate(45deg);
-    transition:transform 0.2s ease;
-    flex-shrink:0;
-    margin-right:2px;
-  }
-  .district-group.collapsed .chevron{ transform:rotate(-45deg); }
-  .district-items{
-    max-height:2000px;
-    overflow:hidden;
-    transition:max-height 0.25s ease;
-  }
-  .district-group.collapsed .district-items{ max-height:0; }
-
   .tree-item{
     display:flex;
     gap:12px;
@@ -348,69 +294,6 @@
     font-size:13px;
     cursor:pointer;
   }
-
-  /* ---- mobile menu toggle + backdrop ---- */
-  #menu-btn{
-    display:none;
-    align-items:center;
-    justify-content:center;
-    width:34px; height:34px;
-    background:rgba(255,255,255,0.08);
-    border:1px solid rgba(255,255,255,0.15);
-    border-radius:8px;
-    color:var(--paper-hi);
-    cursor:pointer;
-    flex-shrink:0;
-  }
-  #sidebar-backdrop{
-    display:none;
-    position:fixed;
-    inset:0;
-    background:rgba(20,26,22,0.45);
-    z-index:40;
-    opacity:0;
-    transition:opacity 0.2s ease;
-  }
-  #sidebar-backdrop.open{ display:block; opacity:1; }
-
-  /* ---- mobile layout (phones / narrow tablets) ---- */
-  @media (max-width: 768px){
-    #app{
-      grid-template-columns: 1fr;
-      grid-template-rows: 56px 1fr;
-    }
-    header{ padding:0 12px; }
-    header h1{ font-size:16px; }
-    header .count{ font-size:11px; padding:5px 10px; }
-    #menu-btn{ display:flex; }
-
-    #sidebar{
-      position:fixed;
-      top:56px; left:0; bottom:0;
-      width:86vw;
-      max-width:340px;
-      transform:translateX(-100%);
-      transition:transform 0.25s ease;
-      z-index:45;
-      box-shadow:8px 0 24px rgba(0,0,0,0.2);
-    }
-    #sidebar.open{ transform:translateX(0); }
-
-    /* detail panel becomes a bottom sheet */
-    #detail{
-      top:auto;
-      right:0;
-      left:0;
-      bottom:0;
-      width:100%;
-      max-width:100%;
-      max-height:78vh;
-      border-radius:16px 16px 0 0;
-      transform:translateY(100%);
-      transition:transform 0.28s ease;
-    }
-    #detail.open{ transform:translateY(0); }
-  }
 </style>
 </head>
 <body>
@@ -418,9 +301,6 @@
 <div id="app">
   <header>
     <div class="brand">
-      <button id="menu-btn" onclick="toggleSidebar()" aria-label="Katalog stabala">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
         <path d="M12 21V12.5" stroke="#a56a2e" stroke-width="1.4" stroke-linecap="round"/>
         <path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="#a56a2e" stroke-width="1.1" stroke-linecap="round"/>
@@ -439,12 +319,10 @@
     </div>
   </header>
 
-  <div id="sidebar-backdrop" onclick="closeSidebar()"></div>
-
   <div id="sidebar">
-    <div class="zone-label">Katalog po dijelovima grada</div>
+    <div class="zone-label">Bulevar Živojina Mišića</div>
     <div id="tree-list"></div>
-    <button class="add-btn admin-only" onclick="if(window.isAdmin){closeSidebar();alert('Klikni na mapu na mjestu gdje želiš dodati stablo — otvorit će se obrazac.');}else{toggleLogin();}">+ Dodaj stablo</button>
+    <button class="add-btn admin-only" onclick="if(window.isAdmin){alert('Klikni na mapu na mjestu gdje želiš dodati stablo — otvorit će se obrazac.');}else{toggleLogin();}">+ Dodaj stablo</button>
     <p class="footnote">🔐 Prijavi se kao admin za dodavanje i uređivanje stabala. Klikni na stablo za detalje.</p>
   </div>
 
@@ -499,6 +377,7 @@
             <button id="d-save-btn" onclick="saveTreeEdit()" style="flex:1;padding:8px;background:var(--moss);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">Sačuvaj</button>
             <button id="d-cancel-btn" onclick="cancelEdit()" style="flex:1;padding:8px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;font-weight:500;font-size:13px;cursor:pointer;">Odustani</button>
           </div>
+          <button id="d-delete-btn" onclick="deleteTree()" style="width:100%;padding:8px;margin-top:8px;background:transparent;color:#b0503a;border:1px solid #b0503a;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">🗑 Obriši stablo</button>
         </div>
       </div>
     </div>
@@ -563,8 +442,6 @@ async function loadTrees(){
     planted: row.planted_year,
     health: row.health_status || 'healthy',
     notes: row.condition_notes,
-    zone: row.zone_name || null,
-    district: row.district_name || 'Ostalo',
     model: row.latest_model_path
       ? `${SUPABASE_URL}/storage/v1/object/public/tree-models/${row.latest_model_path}`
       : null
@@ -578,21 +455,10 @@ async function loadSpecies(){
   return data;
 }
 
-async function loadZones(){
-  if (!supabase) return [];
-  // Embedded select pulls the related district row through the
-  // zone.district_id foreign key, so we get the district name
-  // alongside each zone/street in one query.
-  const { data, error } = await supabase.from('zone').select('id, name, kind, district(name)').order('name');
-  if (error) { console.error('Zone fetch failed:', error); return []; }
-  return data.map(z => ({ id: z.id, name: z.name, kind: z.kind, district: z.district?.name || 'Ostalo' }));
-}
-
 window.supabase = supabase;
 window.usingRealData = usingRealData;
 window.trees = await loadTrees();
 window.speciesList = await loadSpecies();
-window.zoneList = await loadZones();
 window.dispatchEvent(new Event('trees-ready'));
 </script>
 
@@ -658,72 +524,6 @@ window.doLogin = async function(){
   refreshAdminUI();
 };
 
-// ---- mobile sidebar toggle ----
-window.toggleSidebar = function(){
-  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
-};
-window.openSidebar = function(){
-  document.getElementById('sidebar').classList.add('open');
-  document.getElementById('sidebar-backdrop').classList.add('open');
-};
-window.closeSidebar = function(){
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-backdrop').classList.remove('open');
-};
-function isMobile(){ return window.matchMedia('(max-width: 768px)').matches; }
-
-// ---- sidebar catalogue, grouped by district ----
-// Preferred display order; any district not listed here (e.g. a
-// brand-new one) is appended alphabetically at the end.
-const DISTRICT_ORDER = ['Borik', 'Centar', 'Starčevica', 'Nova Varoš', 'Mejdan', 'Budžak'];
-const districtGroups = {}; // name -> { headerEl, itemsEl, count }
-
-function districtSortIndex(name){
-  const i = DISTRICT_ORDER.indexOf(name);
-  return i === -1 ? DISTRICT_ORDER.length + 1 : i;
-}
-
-function getOrCreateDistrictGroup(districtName){
-  if (districtGroups[districtName]) return districtGroups[districtName];
-
-  const group = document.createElement('div');
-  group.className = 'district-group';
-  group.dataset.district = districtName;
-
-  const header = document.createElement('div');
-  header.className = 'district-header';
-  header.innerHTML = `
-    <div class="meta"><span class="chevron"></span><span class="name">${districtName}</span></div>
-    <span class="count">0</span>`;
-  header.onclick = () => group.classList.toggle('collapsed');
-
-  const itemsEl = document.createElement('div');
-  itemsEl.className = 'district-items';
-
-  group.appendChild(header);
-  group.appendChild(itemsEl);
-
-  // insert in DISTRICT_ORDER position (or alphabetically after)
-  const list = document.getElementById('tree-list');
-  const existing = Array.from(list.children);
-  const myIdx = districtSortIndex(districtName);
-  const before = existing.find(el => {
-    const otherIdx = districtSortIndex(el.dataset.district);
-    return otherIdx > myIdx || (otherIdx === myIdx && el.dataset.district > districtName);
-  });
-  list.insertBefore(group, before || null);
-
-  districtGroups[districtName] = { headerEl: header, itemsEl, count: 0 };
-  return districtGroups[districtName];
-}
-
-function bumpDistrictCount(districtName, delta){
-  const g = districtGroups[districtName];
-  if (!g) return;
-  g.count += delta;
-  g.headerEl.querySelector('.count').textContent = g.count;
-}
-
 // ---- sidebar list ----
 document.getElementById('tree-count').textContent = trees.length;
 
@@ -768,11 +568,8 @@ function createTreeMarker(t){
   t._marker = marker;
 }
 
-// ---- helper: add a sidebar item for a tree (filed under its district) ----
+// ---- helper: add a sidebar item for a tree ----
 function addSidebarItem(t){
-  const districtName = t.district || 'Ostalo';
-  const group = getOrCreateDistrictGroup(districtName);
-
   const item = document.createElement('div');
   item.className = 'tree-item';
   item.id = 'item-' + t.id;
@@ -781,10 +578,9 @@ function addSidebarItem(t){
     <div class="health-dot health-${t.health}"></div>
     <div class="info">
       <b>${t.name} ${t.model ? '<span class="scan-badge">3D</span>' : ''}</b>
-      <span>${t.zone ? t.zone + ' · ' : ''}${t.latin}${t.planted ? ' · zasađeno ' + t.planted + '.' : ''}</span>
+      <span>${t.latin}${t.planted ? ' · zasađeno ' + t.planted + '.' : ''}</span>
     </div>`;
-  group.itemsEl.appendChild(item);
-  bumpDistrictCount(districtName, 1);
+  document.getElementById('tree-list').appendChild(item);
 }
 
 // ---- MAP CLICK: add a new tree (admin only) ----
@@ -795,17 +591,9 @@ map.on('click', function(e) {
     .map(s => `<option value="${s.id}">${s.local_name || s.latin_name}</option>`)
     .join('');
 
-  const zoneOptions = (window.zoneList || [])
-    .map(z => `<option value="${z.id}">${z.name} (${z.district})</option>`)
-    .join('');
-
   const formHtml = `
     <div style="font-family:'Inter',sans-serif;min-width:200px;">
       <div style="font-weight:600;font-size:14px;margin-bottom:10px;">Dodaj stablo</div>
-      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Ulica / zona</label>
-      <select id="popup-zone" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
-        ${zoneOptions}
-      </select>
       <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Vrsta</label>
       <select id="popup-species" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
         ${speciesOptions}
@@ -831,7 +619,6 @@ map.on('click', function(e) {
 // ---- add tree to Supabase ----
 window.addTreeAt = async function(lat, lng) {
   const speciesId = parseInt(document.getElementById('popup-species').value);
-  const zoneId = parseInt(document.getElementById('popup-zone').value);
   const health = document.getElementById('popup-health').value;
   const btn = document.querySelector('.add-tree-popup button');
   if (btn) { btn.disabled = true; btn.textContent = 'Dodajem...'; }
@@ -842,7 +629,7 @@ window.addTreeAt = async function(lat, lng) {
   const { data, error } = await window.supabase.from('tree').insert({
     location: `SRID=4326;POINT(${lng} ${lat})`,
     species_id: speciesId,
-    zone_id: zoneId,
+    zone_id: 1,
     health_status: health,
     added_by: user?.id || null,
   }).select();
@@ -857,7 +644,6 @@ window.addTreeAt = async function(lat, lng) {
 
   // Build the tree object for the UI
   const species = (window.speciesList || []).find(s => s.id === speciesId);
-  const zone = (window.zoneList || []).find(z => z.id === zoneId);
   const name = species?.local_name || species?.latin_name || 'Nepoznata vrsta';
   const latin = species?.latin_name || '';
   const treeUuid = data?.[0]?.id;
@@ -873,8 +659,6 @@ window.addTreeAt = async function(lat, lng) {
     planted: null,
     health,
     notes: '',
-    zone: zone?.name || null,
-    district: zone?.district || 'Ostalo',
     model: null
   };
 
@@ -931,7 +715,6 @@ function selectTree(id, fly){
 
   document.getElementById('detail').classList.add('open');
 
-  if (isMobile()) closeSidebar();
   if (fly) map.flyTo([t.lat, t.lng], 17.5, { duration: 0.9 });
 }
 
@@ -997,6 +780,41 @@ window.saveTreeEdit = async function(){
 
   btn.textContent = 'Sačuvaj';
   btn.disabled = false;
+};
+
+window.deleteTree = async function(){
+  const t = trees.find(x => x.id === editingTreeId);
+  if (!t || !window.supabase) return;
+
+  if (!confirm(`Obrisati "${t.name}"? Ovo se ne može poništiti.`)) return;
+
+  const btn = document.getElementById('d-delete-btn');
+  btn.disabled = true;
+  btn.textContent = 'Brišem...';
+
+  const { error } = await window.supabase.from('tree').delete().eq('id', editingTreeId);
+
+  if (error) {
+    alert('Greška pri brisanju: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = '🗑 Obriši stablo';
+    return;
+  }
+
+  // remove marker from map
+  if (t._marker) map.removeLayer(t._marker);
+
+  // remove sidebar item
+  const item = document.getElementById('item-' + editingTreeId);
+  if (item) item.remove();
+
+  // remove from local trees array
+  const idx = trees.findIndex(x => x.id === editingTreeId);
+  if (idx !== -1) trees.splice(idx, 1);
+
+  document.getElementById('tree-count').textContent = trees.length;
+
+  closeDetail();
 };
 
 window.cancelEdit = function(){
