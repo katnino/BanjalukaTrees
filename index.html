@@ -406,7 +406,9 @@
    ============================================================ */
 const SUPABASE_URL = 'https://qcjnnvsaskdhoyschclq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjam5udnNhc2tkaG95c2NoY2xxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NzIzMTIsImV4cCI6MjA5OTI0ODMxMn0.lNODpkRkBNp36ETdXZZf-m6l9hyEpb7HwwWUjrpooxE';
-
+// ── Backblaze B2 (3D model storage) ──
+// Replace with your actual B2 S3 endpoint + bucket name.
+const B2_PUBLIC_URL = 'https://s3.us-west-001.backblazeb2.com/tree-models';
 let supabase = null;
 let usingRealData = false;
 
@@ -443,7 +445,7 @@ async function loadTrees(){
     health: row.health_status || 'healthy',
     notes: row.condition_notes,
     model: row.latest_model_path
-      ? `${SUPABASE_URL}/storage/v1/object/public/tree-models/${row.latest_model_path}`
+      ? `${B2_PUBLIC_URL}/${row.latest_model_path}`
       : null
   }));
 }
