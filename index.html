@@ -449,6 +449,8 @@
             <button id="d-cancel-btn" onclick="cancelEdit()" style="flex:1;padding:8px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;font-weight:500;font-size:13px;cursor:pointer;">Odustani</button>
           </div>
           <button id="d-delete-btn" onclick="deleteTree()" style="width:100%;padding:8px;margin-top:8px;background:transparent;color:#b0503a;border:1px solid #b0503a;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">🗑 Obriši stablo</button>
+          <input type="file" id="scan-file-input" accept=".glb" style="display:none" onchange="uploadScan(this.files[0])">
+          <button id="d-scan-btn" onclick="document.getElementById('scan-file-input').click()" style="width:100%;padding:8px;margin-top:8px;background:transparent;color:var(--river);border:1px solid var(--river);border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">📦 Dodaj 3D sken</button>
         </div>
       </div>
     </div>
@@ -528,6 +530,7 @@ async function loadSpecies(){
 
 window.supabase = supabase;
 window.usingRealData = usingRealData;
+window.SUPABASE_URL = SUPABASE_URL;
 window.trees = await loadTrees();
 window.speciesList = await loadSpecies();
 window.dispatchEvent(new Event('trees-ready'));
@@ -862,6 +865,61 @@ window.saveTreeEdit = async function(){
 
   btn.textContent = 'Sačuvaj';
   btn.disabled = false;
+};
+
+window.uploadScan = async function(file){
+  if (!file || !editingTreeId || !window.supabase) return;
+
+  const btn = document.getElementById('d-scan-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Šaljem...';
+
+  const path = `${editingTreeId}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await window.supabase.storage
+    .from('tree-models')
+    .upload(path, file, { contentType: 'model/gltf-binary' });
+
+  if (uploadError) {
+    alert('Greška pri slanju fajla: ' + uploadError.message);
+    btn.disabled = false;
+    btn.textContent = original;
+    return;
+  }
+
+  const { data: { user } } = await window.supabase.auth.getUser();
+
+  const { error: insertError } = await window.supabase.from('tree_scan').insert({
+    tree_id: editingTreeId,
+    model_storage_path: path,
+    method: 'photogrammetry',
+    scanned_by: user?.id || null
+  });
+
+  if (insertError) {
+    alert('Greška pri spremanju skena: ' + insertError.message);
+    btn.disabled = false;
+    btn.textContent = original;
+    return;
+  }
+
+  const t = trees.find(x => x.id === editingTreeId);
+  t.model = `${window.SUPABASE_URL}/storage/v1/object/public/tree-models/${path}`;
+
+  selectTree(editingTreeId, false);
+
+  const item = document.getElementById('item-' + editingTreeId);
+  if (item) {
+    const b = item.querySelector('b');
+    if (b && !b.querySelector('.scan-badge')) {
+      b.insertAdjacentHTML('beforeend', ' <span class="scan-badge">3D</span>');
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = original;
+  document.getElementById('scan-file-input').value = '';
 };
 
 window.deleteTree = async function(){
