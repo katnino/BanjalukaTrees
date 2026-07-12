@@ -700,6 +700,38 @@ map.on('click', function(e) {
 });
 
 // ---- add tree to Supabase ----
+// Ensures a contributor row exists for the given auth user before it's used
+// as a foreign key (tree.added_by, tree_scan.scanned_by). Some accounts
+// (e.g. created via Supabase dashboard invite) never get one from the
+// signup trigger. Returns the user id to use as the FK, or null if the
+// contributor row genuinely can't be created (in which case the caller's
+// insert will proceed with a null FK rather than fail).
+async function ensureContributor(user){
+  const { data: existing, error: selectError } = await window.supabase
+    .from('contributor')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error('Contributor lookup failed:', selectError);
+    return null;
+  }
+  if (existing) return user.id;
+
+  const { error: insertError } = await window.supabase.from('contributor').insert({
+    id: user.id,
+    display_name: user.email || 'Admin'
+  });
+
+  if (insertError) {
+    console.error('Contributor auto-create failed:', insertError);
+    alert('Napomena: tvoj admin nalog nema profil (contributor zapis) i nije ga bilo moguće automatski kreirati. Unos će se sačuvati bez vlasnika (added_by/scanned_by = null), što znači da ga kasnije nećeš moći obrisati/urediti preko aplikacije — samo preko Supabase dashboarda.');
+    return null;
+  }
+  return user.id;
+}
+
 window.addTreeAt = async function(lat, lng) {
   const speciesId = parseInt(document.getElementById('popup-species').value);
   const health = document.getElementById('popup-health').value;
@@ -708,13 +740,14 @@ window.addTreeAt = async function(lat, lng) {
 
   // Get current user ID so you own the tree
   const { data: { user } } = await window.supabase.auth.getUser();
+  const addedBy = user ? await ensureContributor(user) : null;
 
   const { data, error } = await window.supabase.from('tree').insert({
     location: `SRID=4326;POINT(${lng} ${lat})`,
     species_id: speciesId,
     zone_id: 1,
     health_status: health,
-    added_by: user?.id || null,
+    added_by: addedBy,
   }).select();
 
   if (error) {
@@ -889,12 +922,13 @@ window.uploadScan = async function(file){
   }
 
   const { data: { user } } = await window.supabase.auth.getUser();
+  const scannedBy = user ? await ensureContributor(user) : null;
 
   const { error: insertError } = await window.supabase.from('tree_scan').insert({
     tree_id: editingTreeId,
     model_storage_path: path,
     method: 'photogrammetry',
-    scanned_by: user?.id || null
+    scanned_by: scannedBy
   });
 
   if (insertError) {
