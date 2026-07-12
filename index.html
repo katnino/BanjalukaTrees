@@ -143,6 +143,25 @@
     width:22px; height:22px;
     cursor:pointer;
     filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+    position:relative;
+  }
+  .tree-marker .marker-ring{
+    position:absolute;
+    top:-6px; left:-6px;
+    width:34px; height:34px;
+    border-radius:50%;
+    border:2px solid var(--amber);
+    opacity:0;
+    pointer-events:none;
+  }
+  .tree-marker.selected .marker-ring{
+    opacity:1;
+    animation: tree-pulse 1.5s ease-out infinite;
+  }
+  @keyframes tree-pulse{
+    0%   { transform:scale(0.6); opacity:0.9; }
+    70%  { transform:scale(1.15); opacity:0; }
+    100% { transform:scale(1.15); opacity:0; }
   }
 
   /* detail panel */
@@ -637,7 +656,7 @@ function healthColor(h){
 function createTreeMarker(t){
   const icon = L.divIcon({
     className: '',
-    html: `<div class="tree-marker"><svg viewBox="0 0 24 24" fill="none">
+    html: `<div class="tree-marker"><div class="marker-ring"></div><svg viewBox="0 0 24 24" fill="none">
         <path d="M12 21V12.5" stroke="#3a2a18" stroke-width="1.3"/>
         <circle cx="12" cy="7.5" r="4.6" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
         <circle cx="7.6" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
@@ -829,6 +848,17 @@ function selectTree(id, fly){
     if (editBtn) editBtn.style.display = 'none';
   }
 
+  if (activeMarker && activeMarker._icon) {
+    const prevEl = activeMarker._icon.querySelector('.tree-marker');
+    if (prevEl) prevEl.classList.remove('selected');
+  }
+  if (t._marker && t._marker._icon) {
+    const curEl = t._marker._icon.querySelector('.tree-marker');
+    if (curEl) curEl.classList.add('selected');
+    t._marker.setZIndexOffset(1000);
+  }
+  activeMarker = t._marker;
+
   document.getElementById('detail').classList.add('open');
 
   if (window.innerWidth <= 780) window.toggleSidebar(false);
@@ -885,7 +915,6 @@ window.saveTreeEdit = async function(){
   t.health = health;
   t.notes = notes;
 
-  selectTree(editingTreeId, false);
   const item = document.getElementById('item-' + editingTreeId);
   if (item) {
     const dot = item.querySelector('.health-dot');
@@ -895,6 +924,7 @@ window.saveTreeEdit = async function(){
     map.removeLayer(t._marker);
     createTreeMarker(t);
   }
+  selectTree(editingTreeId, false);
 
   btn.textContent = 'Sačuvaj';
   btn.disabled = false;
@@ -997,6 +1027,11 @@ window.cancelEdit = function(){
 };
 
 function closeDetail(){
+  if (activeMarker && activeMarker._icon) {
+    const el = activeMarker._icon.querySelector('.tree-marker');
+    if (el) el.classList.remove('selected');
+  }
+  activeMarker = null;
   document.getElementById('detail').classList.remove('open');
   document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
   document.getElementById('d-edit-section').style.display = 'none';
