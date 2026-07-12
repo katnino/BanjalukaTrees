@@ -418,6 +418,8 @@
 
         <!-- Edit section (hidden until "Uredi" is clicked) -->
         <div id="d-edit-section" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <input type="file" id="scan-file-input" accept=".glb" style="display:none" onchange="uploadScan(this.files[0])">
+          <button id="d-scan-btn" onclick="document.getElementById('scan-file-input').click()" style="width:100%;padding:10px;margin-bottom:14px;background:var(--river);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">📦 Dodaj 3D sken</button>
           <div class="stat-grid" style="grid-template-columns:1fr;">
             <div>
               <span class="label">Visina (m)</span>
@@ -449,8 +451,6 @@
             <button id="d-cancel-btn" onclick="cancelEdit()" style="flex:1;padding:8px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;font-weight:500;font-size:13px;cursor:pointer;">Odustani</button>
           </div>
           <button id="d-delete-btn" onclick="deleteTree()" style="width:100%;padding:8px;margin-top:8px;background:transparent;color:#b0503a;border:1px solid #b0503a;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">🗑 Obriši stablo</button>
-          <input type="file" id="scan-file-input" accept=".glb" style="display:none" onchange="uploadScan(this.files[0])">
-          <button id="d-scan-btn" onclick="document.getElementById('scan-file-input').click()" style="width:100%;padding:8px;margin-top:8px;background:transparent;color:var(--river);border:1px solid var(--river);border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">📦 Dodaj 3D sken</button>
         </div>
       </div>
     </div>
