@@ -94,14 +94,25 @@
     display:flex;
     flex-direction:column;
   }
-  #sidebar .zone-label{
-    padding:16px 18px 8px;
+  .district-header{
+    padding:14px 18px 8px;
     font-size:13px;
     text-transform:uppercase;
     letter-spacing:0.08em;
     color:var(--moss);
     font-weight:600;
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    user-select:none;
   }
+  .district-header .chevron{
+    font-size:11px;
+    transition:transform 0.15s ease;
+  }
+  .district-group.collapsed .chevron{ transform:rotate(-90deg); }
+  .district-group.collapsed .district-items{ display:none; }
   .tree-item{
     display:flex;
     gap:12px;
@@ -410,7 +421,6 @@
   <div id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
 
   <div id="sidebar">
-    <div class="zone-label">Bulevar Živojina Mišića</div>
     <div id="tree-list"></div>
     <button class="add-btn admin-only" onclick="if(window.isAdmin){alert('Klikni na mapu na mjestu gdje želiš dodati stablo — otvorit će se obrazac.');}else{toggleLogin();}">+ Dodaj stablo</button>
     <p class="footnote">🔐 Prijavi se kao admin za dodavanje i uređivanje stabala. Klikni na stablo za detalje.</p>
@@ -526,6 +536,7 @@ async function loadTrees(){
     id: row.id,
     name: row.local_name || row.latin_name || 'Nepoznata vrsta',
     latin: row.latin_name || '',
+    district: row.district_name || 'Ostalo',
     lat: row.lat,
     lng: row.lng,
     height: row.height_m,
@@ -547,11 +558,19 @@ async function loadSpecies(){
   return data;
 }
 
+async function loadZones(){
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('zone').select('id, name, district:district(name)');
+  if (error) { console.error('Zone fetch failed:', error); return []; }
+  return data;
+}
+
 window.supabase = supabase;
 window.usingRealData = usingRealData;
 window.SUPABASE_URL = SUPABASE_URL;
 window.trees = await loadTrees();
 window.speciesList = await loadSpecies();
+window.zoneList = await loadZones();
 window.dispatchEvent(new Event('trees-ready'));
 </script>
 
@@ -670,6 +689,41 @@ function createTreeMarker(t){
   t._marker = marker;
 }
 
+// ---- helper: neighbourhood (district) accordion groups ----
+const DISTRICT_ORDER = ['Borik', 'Centar', 'Starčevica', 'Nova Varoš', 'Mejdan', 'Budžak'];
+
+function cssSafe(s){ return s.replace(/[^a-zA-Z0-9]/g, '-'); }
+
+function getDistrictGroup(name){
+  const groupId = 'district-' + cssSafe(name);
+  let group = document.getElementById(groupId);
+  if (group) return group.querySelector('.district-items');
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'district-group';
+  wrapper.id = groupId;
+  wrapper.dataset.district = name;
+  wrapper.innerHTML = `
+    <div class="district-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <span>${name}</span><span class="chevron">▾</span>
+    </div>
+    <div class="district-items"></div>`;
+
+  const list = document.getElementById('tree-list');
+  const idx = DISTRICT_ORDER.indexOf(name);
+  let inserted = false;
+  for (const child of list.children) {
+    const childIdx = DISTRICT_ORDER.indexOf(child.dataset.district);
+    if (idx !== -1 && (childIdx === -1 || childIdx > idx)) {
+      list.insertBefore(wrapper, child);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) list.appendChild(wrapper);
+  return wrapper.querySelector('.district-items');
+}
+
 // ---- helper: add a sidebar item for a tree ----
 function addSidebarItem(t){
   const item = document.createElement('div');
@@ -682,7 +736,7 @@ function addSidebarItem(t){
       <b>${t.name} ${t.model ? '<span class="scan-badge">3D</span>' : ''}</b>
       <span>${t.latin}${t.planted ? ' · zasađeno ' + t.planted + '.' : ''}</span>
     </div>`;
-  document.getElementById('tree-list').appendChild(item);
+  getDistrictGroup(t.district || 'Ostalo').appendChild(item);
 }
 
 // ---- MAP CLICK: add a new tree (admin only) ----
@@ -782,11 +836,13 @@ window.addTreeAt = async function(lat, lng) {
   const name = species?.local_name || species?.latin_name || 'Nepoznata vrsta';
   const latin = species?.latin_name || '';
   const treeUuid = data?.[0]?.id;
+  const zone = (window.zoneList || []).find(z => z.id === 1);
 
   const treeObj = {
     id: treeUuid || 'temp-' + Date.now(),
     name,
     latin,
+    district: zone?.district?.name || 'Ostalo',
     lat,
     lng,
     height: null,
