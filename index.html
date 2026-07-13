@@ -7,6 +7,7 @@
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -627,21 +628,6 @@ if (typeof L === 'undefined') {
   }).addTo(map);
 }
 
-// model-viewer (~800KB) is only needed once a tree with a 3D scan is opened,
-// so it loads on demand instead of blocking initial page load.
-let modelViewerLoading = null;
-function ensureModelViewer(){
-  if (modelViewerLoading) return modelViewerLoading;
-  modelViewerLoading = new Promise((resolve) => {
-    const s = document.createElement('script');
-    s.type = 'module';
-    s.src = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
-    s.onload = resolve;
-    document.head.appendChild(s);
-  });
-  return modelViewerLoading;
-}
-
 window.addEventListener('trees-ready', () => {
 const trees = window.trees;
 
@@ -949,7 +935,6 @@ function selectTree(id, fly){
 
   const frame = document.getElementById('model-frame');
   if (t.model) {
-    ensureModelViewer();
     frame.innerHTML = `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`;
   } else if (t.leafIcon) {
     frame.innerHTML = `<div class="no-scan-leaf"><img src="${t.leafIcon}" alt="${t.name}" onerror="window.leafIconFallback(this)"><span>Za ovo stablo još nema 3D skena.</span></div>`;
