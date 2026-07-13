@@ -209,6 +209,18 @@
     font-size:13px; text-align:center; padding:0 30px;
     font-family:'IBM Plex Mono', monospace;
   }
+  #detail .no-scan-leaf{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100%; gap:8px;
+  }
+  #detail .no-scan-leaf img{
+    width:96px; height:96px; object-fit:contain; opacity:0.9;
+  }
+  #detail .no-scan-leaf span{
+    color:rgba(255,255,255,0.55);
+    font-size:12px; text-align:center; padding:0 20px;
+    font-family:'IBM Plex Mono', monospace;
+  }
 
   #detail .body{ padding:18px 20px 22px; }
   #detail h2{ font-size:20px; margin:0 0 2px; }
@@ -523,6 +535,20 @@ try {
   console.warn('Supabase init failed, running without database:', err);
 }
 
+function slugifyLocalName(name){
+  if (!name) return null;
+  const map = {'č':'c','ć':'c','š':'s','ž':'z','đ':'dj','Č':'c','Ć':'c','Š':'s','Ž':'z','Đ':'dj'};
+  return name.split('').map(ch => map[ch] || ch).join('')
+    .toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+window.slugifyLocalName = slugifyLocalName;
+window.leafIconFallback = function(imgEl){
+  imgEl.parentElement.innerHTML = '<div class="no-scan">Za ovo stablo još nema 3D skena.</div>';
+};
+
 async function loadTrees(){
   if (!supabase) return [];
 
@@ -546,6 +572,9 @@ async function loadTrees(){
     notes: row.condition_notes,
     model: row.latest_model_path
       ? `${SUPABASE_URL}/storage/v1/object/public/tree-models/${row.latest_model_path}`
+      : null,
+    leafIcon: row.local_name
+      ? `${SUPABASE_URL}/storage/v1/object/public/leaf-icons/leaf-${slugifyLocalName(row.local_name)}.webp`
       : null
 
   }));
@@ -859,7 +888,10 @@ window.addTreeAt = async function(lat, lng) {
     planted: null,
     health,
     notes: '',
-    model: null
+    model: null,
+    leafIcon: species?.local_name
+      ? `${window.SUPABASE_URL}/storage/v1/object/public/leaf-icons/leaf-${window.slugifyLocalName(species.local_name)}.webp`
+      : null
   };
 
   trees.push(treeObj);
@@ -890,9 +922,13 @@ function selectTree(id, fly){
   document.getElementById('d-notes').textContent = t.notes || 'Nema dodatnih napomena.';
 
   const frame = document.getElementById('model-frame');
-  frame.innerHTML = t.model
-    ? `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`
-    : `<div class="no-scan">Za ovo stablo još nema 3D skena.</div>`;
+  if (t.model) {
+    frame.innerHTML = `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`;
+  } else if (t.leafIcon) {
+    frame.innerHTML = `<div class="no-scan-leaf"><img src="${t.leafIcon}" alt="${t.name}" onerror="window.leafIconFallback(this)"><span>Za ovo stablo još nema 3D skena.</span></div>`;
+  } else {
+    frame.innerHTML = `<div class="no-scan">Za ovo stablo još nema 3D skena.</div>`;
+  }
 
   document.getElementById('d-edit-section').style.display = 'none';
 
