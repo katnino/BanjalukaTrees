@@ -7,9 +7,11 @@
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://qcjnnvsaskdhoyschclq.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <style>
@@ -597,13 +599,49 @@ async function loadDistricts(){
 window.supabase = supabase;
 window.usingRealData = usingRealData;
 window.SUPABASE_URL = SUPABASE_URL;
-window.trees = await loadTrees();
-window.speciesList = await loadSpecies();
-window.districtList = await loadDistricts();
+const [loadedTrees, loadedSpecies, loadedDistricts] = await Promise.all([
+  loadTrees(), loadSpecies(), loadDistricts()
+]);
+window.trees = loadedTrees;
+window.speciesList = loadedSpecies;
+window.districtList = loadedDistricts;
 window.dispatchEvent(new Event('trees-ready'));
 </script>
 
 <script>
+// Map is created immediately so it's visible while tree/species/district data
+// loads over the network — same map, same tiles, same behavior, just no
+// longer blocked on the Supabase fetches.
+let map;
+if (typeof L === 'undefined') {
+  document.getElementById('map').innerHTML =
+    '<div style="padding:24px;font-family:sans-serif;color:#6b4a34;">' +
+    'Karta se nije učitala jer je blokiran pristup CDN-u. ' +
+    'Provjeri internet konekciju ili isključi ad-blocker za ovu stranicu.</div>';
+  throw new Error('Leaflet failed to load from CDN — check network/ad-blocker.');
+} else {
+  map = L.map('map', { zoomControl: true }).setView([44.7730, 17.1938], 15.5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+}
+
+// model-viewer (~800KB) is only needed once a tree with a 3D scan is opened,
+// so it loads on demand instead of blocking initial page load.
+let modelViewerLoading = null;
+function ensureModelViewer(){
+  if (modelViewerLoading) return modelViewerLoading;
+  modelViewerLoading = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+  return modelViewerLoading;
+}
+
 window.addEventListener('trees-ready', () => {
 const trees = window.trees;
 
@@ -729,21 +767,9 @@ document.getElementById('tree-count').textContent = trees.length;
 
 trees.forEach(t => addSidebarItem(t));
 
-// ---- map ----
-if (typeof L === 'undefined') {
-  document.getElementById('map').innerHTML =
-    '<div style="padding:24px;font-family:sans-serif;color:#6b4a34;">' +
-    'Karta se nije učitala jer je blokiran pristup CDN-u. ' +
-    'Provjeri internet konekciju ili isključi ad-blocker za ovu stranicu.</div>';
-  throw new Error('Leaflet failed to load from CDN — check network/ad-blocker.');
-}
-
-const map = L.map('map', { zoomControl: true }).setView([44.7730, 17.1938], 15.5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors',
-  maxZoom: 19
-}).addTo(map);
-
+// ---- map markers ----
+// (map + tiles already created above, before this listener, so they're visible
+// immediately — this just adds the tree pins once data has arrived)
 trees.forEach(t => createTreeMarker(t));
 
 function healthColor(h){
@@ -923,6 +949,7 @@ function selectTree(id, fly){
 
   const frame = document.getElementById('model-frame');
   if (t.model) {
+    ensureModelViewer();
     frame.innerHTML = `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`;
   } else if (t.leafIcon) {
     frame.innerHTML = `<div class="no-scan-leaf"><img src="${t.leafIcon}" alt="${t.name}" onerror="window.leafIconFallback(this)"><span>Za ovo stablo još nema 3D skena.</span></div>`;
