@@ -209,18 +209,6 @@
     font-size:13px; text-align:center; padding:0 30px;
     font-family:'IBM Plex Mono', monospace;
   }
-  #detail .no-scan-leaf{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    height:100%; gap:8px;
-  }
-  #detail .no-scan-leaf img{
-    width:96px; height:96px; object-fit:contain; opacity:0.9;
-  }
-  #detail .no-scan-leaf span{
-    color:rgba(255,255,255,0.55);
-    font-size:12px; text-align:center; padding:0 20px;
-    font-family:'IBM Plex Mono', monospace;
-  }
 
   #detail .body{ padding:18px 20px 22px; }
   #detail h2{ font-size:20px; margin:0 0 2px; }
@@ -535,20 +523,6 @@ try {
   console.warn('Supabase init failed, running without database:', err);
 }
 
-function slugifyLocalName(name){
-  if (!name) return null;
-  const map = {'č':'c','ć':'c','š':'s','ž':'z','đ':'dj','Č':'c','Ć':'c','Š':'s','Ž':'z','Đ':'dj'};
-  return name.split('').map(ch => map[ch] || ch).join('')
-    .toLowerCase()
-    .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9]+/g,'-')
-    .replace(/^-+|-+$/g,'');
-}
-window.slugifyLocalName = slugifyLocalName;
-window.leafIconFallback = function(imgEl){
-  imgEl.parentElement.innerHTML = '<div class="no-scan">Za ovo stablo još nema 3D skena.</div>';
-};
-
 async function loadTrees(){
   if (!supabase) return [];
 
@@ -572,9 +546,6 @@ async function loadTrees(){
     notes: row.condition_notes,
     model: row.latest_model_path
       ? `${SUPABASE_URL}/storage/v1/object/public/tree-models/${row.latest_model_path}`
-      : null,
-    leafIcon: row.local_name
-      ? `${SUPABASE_URL}/storage/v1/object/public/leaf-icons/leaf-${slugifyLocalName(row.local_name)}.webp`
       : null
 
   }));
@@ -587,10 +558,10 @@ async function loadSpecies(){
   return data;
 }
 
-async function loadZones(){
+async function loadDistricts(){
   if (!supabase) return [];
-  const { data, error } = await supabase.from('zone').select('id, name, district:district(name)');
-  if (error) { console.error('Zone fetch failed:', error); return []; }
+  const { data, error } = await supabase.from('district').select('id, name');
+  if (error) { console.error('District fetch failed:', error); return []; }
   return data;
 }
 
@@ -599,7 +570,7 @@ window.usingRealData = usingRealData;
 window.SUPABASE_URL = SUPABASE_URL;
 window.trees = await loadTrees();
 window.speciesList = await loadSpecies();
-window.zoneList = await loadZones();
+window.districtList = await loadDistricts();
 window.dispatchEvent(new Event('trees-ready'));
 </script>
 
@@ -675,7 +646,7 @@ window.doLogin = async function(){
 };
 
 // ---- helper: neighbourhood (district) accordion groups ----
-const DISTRICT_ORDER = ['Borik', 'Centar', 'Starčevica', 'Nova Varoš', 'Mejdan', 'Budžak'];
+const DISTRICT_ORDER = ['Borik', 'Centar', 'Nova Varoš', 'Rosulje', 'Mejdan', 'Lauš', 'Budžak', 'Starčevica', 'Ada', 'Petrićevac', 'Česma', 'Šeher'];
 
 function cssSafe(s){ return s.replace(/[^a-zA-Z0-9]/g, '-'); }
 
@@ -776,9 +747,17 @@ map.on('click', function(e) {
     .map(s => `<option value="${s.id}">${s.local_name || s.latin_name}</option>`)
     .join('');
 
+  const districtOptions = (window.districtList || [])
+    .map(d => `<option value="${d.id}" ${d.name === 'Borik' ? 'selected' : ''}>${d.name}</option>`)
+    .join('');
+
   const formHtml = `
     <div style="font-family:'Inter',sans-serif;min-width:200px;">
       <div style="font-weight:600;font-size:14px;margin-bottom:10px;">Dodaj stablo</div>
+      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Dio grada</label>
+      <select id="popup-district" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
+        ${districtOptions}
+      </select>
       <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Vrsta</label>
       <select id="popup-species" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
         ${speciesOptions}
@@ -836,6 +815,7 @@ async function ensureContributor(user){
 
 window.addTreeAt = async function(lat, lng) {
   const speciesId = parseInt(document.getElementById('popup-species').value);
+  const districtId = parseInt(document.getElementById('popup-district').value);
   const health = document.getElementById('popup-health').value;
   const btn = document.querySelector('.add-tree-popup button');
   if (btn) { btn.disabled = true; btn.textContent = 'Dodajem...'; }
@@ -847,7 +827,7 @@ window.addTreeAt = async function(lat, lng) {
   const { data, error } = await window.supabase.from('tree').insert({
     location: `SRID=4326;POINT(${lng} ${lat})`,
     species_id: speciesId,
-    zone_id: 1,
+    district_id: districtId,
     health_status: health,
     added_by: addedBy,
   }).select();
@@ -865,13 +845,13 @@ window.addTreeAt = async function(lat, lng) {
   const name = species?.local_name || species?.latin_name || 'Nepoznata vrsta';
   const latin = species?.latin_name || '';
   const treeUuid = data?.[0]?.id;
-  const zone = (window.zoneList || []).find(z => z.id === 1);
+  const district = (window.districtList || []).find(d => d.id === districtId);
 
   const treeObj = {
     id: treeUuid || 'temp-' + Date.now(),
     name,
     latin,
-    district: zone?.district?.name || 'Ostalo',
+    district: district?.name || 'Ostalo',
     lat,
     lng,
     height: null,
@@ -910,13 +890,9 @@ function selectTree(id, fly){
   document.getElementById('d-notes').textContent = t.notes || 'Nema dodatnih napomena.';
 
   const frame = document.getElementById('model-frame');
-  if (t.model) {
-    frame.innerHTML = `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`;
-  } else if (t.leafIcon) {
-    frame.innerHTML = `<div class="no-scan-leaf"><img src="${t.leafIcon}" alt="${t.name}" onerror="window.leafIconFallback(this)"><span>Za ovo stablo još nema 3D skena.</span></div>`;
-  } else {
-    frame.innerHTML = `<div class="no-scan">Za ovo stablo još nema 3D skena.</div>`;
-  }
+  frame.innerHTML = t.model
+    ? `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`
+    : `<div class="no-scan">Za ovo stablo još nema 3D skena.</div>`;
 
   document.getElementById('d-edit-section').style.display = 'none';
 
