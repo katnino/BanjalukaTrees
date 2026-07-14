@@ -19,4 +19,13 @@ Includes:
 
 ## 3. Todo: mirror into OpenStreetMap
 
+## Licenca
+
+Ovaj repo je javno vidljiv u demonstracijske svrhe. Kod nije
+otvorenog tipa (open-source) i sva prava su zadržana. Za institucionalnu
+upotrebu (obrazovne ustanove, Ministarstvo obrazovanja, jedinice
+lokalnih opština) ili partnerstva, kontakt: noniboy@zoho.com
+
+Vidi [LICENSE](./LICENSE).
+
 
