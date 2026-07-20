@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
-    "commit": "5ba86bc12094aebcb54455eacb3f00f33cefc1d2",
-    "indexed_at": "2026-07-13T14:21:17Z",
+    "commit": "22374af2066a25fc9346dcabf034243625985cee",
+    "indexed_at": "2026-07-14T15:40:13Z",
     "project": "Users-noniboy-treesFinal",
-    "nodes": 18,
-    "edges": 18,
-    "original_size": 1179648,
-    "compressed_size": 3525,
-    "compression_level": 9
+    "nodes": 32,
+    "edges": 30,
+    "original_size": 1769472,
+    "compressed_size": 6948,
+    "compression_level": 3
 }
