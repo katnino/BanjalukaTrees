@@ -1,2081 +1,1361 @@
-<!DOCTYPE html>
-<html lang="sr-Latn">
+<!-- © 2026 Nino Katić. All rights reserved. See LICENSE. -->
+<!doctype html>
+<html lang="bs">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Interaktivna mapa urbanih klupi i korpi u Banjoj Luci — praćenje stanja i lokacija inventara.">
-<title>Urban Monitor KK</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8F%99%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drveće Banjaluke — Bulevar Živojina Mišića</title>
+
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://qcjnnvsaskdhoyschclq.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <style>
-  :root {
-    --bg: #08111a;
-    --bg-2: #0c1725;
-    --panel: rgba(12, 18, 28, 0.82);
-    --panel-strong: rgba(9, 14, 22, 0.92);
-    --panel-border: rgba(255, 255, 255, 0.1);
-    --panel-soft: rgba(255, 255, 255, 0.06);
-    --text: #f3f6fb;
-    --muted: rgba(243, 246, 251, 0.7);
-    --muted-strong: rgba(243, 246, 251, 0.9);
-    --accent: #e8b04b;
-    --accent-2: #7fd3c0;
-    --accent-3: #f06f5d;
-    --shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
-    --radius: 22px;
-    --good: #2ecc71;
-    --fair: #f1c40f;
-    --poor: #e74c3c;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
-  html,
-  body {
-    margin: 0;
-    min-height: 100%;
-    background:
-      radial-gradient(circle at top left, rgba(232, 176, 75, 0.17), transparent 32%),
-      radial-gradient(circle at bottom right, rgba(127, 211, 192, 0.16), transparent 36%),
-      linear-gradient(180deg, #0b1520 0%, #08111a 56%, #060c13 100%);
-    color: var(--text);
-    font-family: "Space Grotesk", "Segoe UI", sans-serif;
-    overflow: hidden;
-  }
-
-  #app {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-  }
-
-  #map {
-    position: absolute;
-    inset: 0;
-  }
-
-  .title-badge {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    z-index: 30;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border-radius: 999px;
-    background: rgba(8, 12, 18, 0.62);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
-    box-shadow: var(--shadow);
-    user-select: none;
-  }
-
-  .title-badge__icon {
-    font-size: 18px;
-    line-height: 1;
-  }
-
-  .title-badge__text {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-
-  .title-badge__text em {
-    font-style: normal;
-    color: var(--accent);
-  }
-
-  .sidebar-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border: none;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.08);
-    color: var(--text);
-    font-size: 11px;
-    cursor: pointer;
-    transition: background 0.2s;
-    margin-left: 4px;
-    flex-shrink: 0;
-  }
-
-  .sidebar-toggle:hover {
-    background: rgba(255,255,255,0.18);
-  }
-
-  .sidebar.collapsed {
-    transform: translateX(calc(-100% - 20px));
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .sidebar {
-    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s;
-  }
-
-  .sidebar-show {
-    position: absolute;
-    top: 76px;
-    left: 12px;
-    z-index: 26;
-    width: 36px;
-    height: 36px;
-    border: 1px solid var(--panel-border);
-    border-radius: 12px;
-    background: var(--panel-strong);
-    color: var(--text);
-    font-size: 13px;
-    cursor: pointer;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: var(--shadow);
-    transition: opacity 0.2s, background 0.2s;
-  }
-
-  .sidebar-show:hover {
-    background: rgba(255,255,255,0.14);
-  }
-
-  .sidebar {
-    position: absolute;
-    top: 70px;
-    left: 16px;
-    bottom: 16px;
-    z-index: 25;
-    width: min(372px, calc(100vw - 32px));
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, rgba(12, 18, 28, 0.9), rgba(8, 12, 18, 0.84));
-    border: 1px solid var(--panel-border);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(18px) saturate(130%);
-    -webkit-backdrop-filter: blur(18px) saturate(130%);
-  }
-
-  .sidebar::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  .sidebar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .sidebar::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.15);
-    border-radius: 99px;
-  }
-
-  .sidebar__header {
-    padding: 22px 20px 18px;
-    border-bottom: 1px solid var(--panel-border);
-    background:
-      linear-gradient(135deg, rgba(232, 176, 75, 0.18), transparent 36%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 64%);
-  }
-
-  .sidebar__eyebrow {
-    margin: 0 0 8px;
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--accent-2);
-  }
-
-  .sidebar__header h1 {
-    margin: 0;
-    font-family: "Fraunces", Georgia, serif;
-    font-size: 30px;
-    line-height: 1.03;
-    letter-spacing: -0.04em;
-  }
-
-  .sidebar__header p {
-    margin: 12px 0 0;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.55;
-  }
-
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-  }
-
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 11px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--muted-strong);
-    font-size: 12px;
-  }
-
-  .status-pill::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: var(--accent-2);
-    box-shadow: 0 0 0 4px rgba(127, 211, 192, 0.12);
-  }
-
-  .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    padding: 16px 20px 0;
-  }
-
-  .summary-card {
-    padding: 12px 12px 11px;
-    border-radius: 16px;
-    background: var(--panel-soft);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .summary-value {
-    display: block;
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.04em;
-  }
-
-  .summary-label {
-    display: block;
-    margin-top: 5px;
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .sidebar__section {
-    padding: 18px 20px 0;
-  }
-
-  .section__title {
-    margin: 0 0 10px;
-    color: rgba(243, 246, 251, 0.9);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-
-  .landmark-list {
-    display: grid;
-    gap: 8px;
-  }
-
-  .landmark-item {
-    width: 100%;
-    padding: 12px 13px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--text);
-    text-align: left;
-    cursor: pointer;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-  }
-
-  .landmark-item:hover {
-    transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.16);
-  }
-
-  .landmark-item--active {
-    background: rgba(232, 176, 75, 0.12);
-    border-color: rgba(232, 176, 75, 0.32);
-  }
-
-  .landmark-item__name {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .landmark-item__desc {
-    display: block;
-    font-size: 12px;
-    line-height: 1.45;
-    color: var(--muted);
-  }
-
-  .filter-grid {
-    display: grid;
-    gap: 8px;
-  }
-
-  .filter-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 11px 12px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    cursor: pointer;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-  }
-
-  .filter-card:hover {
-    transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.16);
-  }
-
-  .filter-card input {
-    margin: 0;
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent-2);
-    flex-shrink: 0;
-  }
-
-  .filter-card__body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .filter-card__label {
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .filter-card__meta {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.35;
-  }
-
-  .swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 999px;
-    flex-shrink: 0;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
-  }
-
-  .swatch-good {
-    background: var(--good);
-  }
-
-  .swatch-fair {
-    background: var(--fair);
-  }
-
-  .swatch-poor {
-    background: var(--poor);
-  }
-
-  .sidebar__footer {
-    margin-top: auto;
-    padding: 16px 20px 18px;
-    border-top: 1px solid var(--panel-border);
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.55;
-  }
-
-  .sidebar__footer code {
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--accent-2);
-  }
-
-  .control-panel {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    z-index: 25;
-    width: min(340px, calc(100vw - 32px));
-    display: grid;
-    gap: 10px;
-    padding: 14px;
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, rgba(12, 18, 28, 0.9), rgba(8, 12, 18, 0.84));
-    border: 1px solid var(--panel-border);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(18px) saturate(130%);
-    -webkit-backdrop-filter: blur(18px) saturate(130%);
-  }
-
-  .search-box {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-  }
-
-  .search-box__input {
-    width: 100%;
-    min-width: 0;
-    padding: 12px 13px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-    outline: none;
-  }
-
-  .search-box__input::placeholder {
-    color: rgba(243, 246, 251, 0.45);
-  }
-
-  .search-box__input:focus {
-    border-color: rgba(232, 176, 75, 0.56);
-    box-shadow: 0 0 0 4px rgba(232, 176, 75, 0.12);
-  }
-
-  .btn {
-    appearance: none;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    border-radius: 14px;
-    padding: 11px 13px;
-    cursor: pointer;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-  }
-
-  .btn:hover {
-    transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.16);
-  }
-
-  .btn--primary {
-    background: linear-gradient(135deg, rgba(232, 176, 75, 0.96), rgba(247, 219, 128, 0.96));
-    border-color: rgba(232, 176, 75, 0.38);
-    color: #11151c;
-  }
-
-  .btn--primary:hover {
-    background: linear-gradient(135deg, rgba(239, 187, 90, 0.98), rgba(250, 227, 145, 0.98));
-  }
-
-  .btn--grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .btn__icon {
-    font-size: 14px;
-    line-height: 1;
-    color: inherit;
-  }
-
-  .control-stack {
-    display: grid;
-    gap: 8px;
-  }
-
-  .search-results {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    z-index: 35;
-    overflow: hidden;
-    max-height: 236px;
-    border-radius: 16px;
-    background: rgba(9, 14, 22, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--shadow);
-  }
-
-  .search-result {
-    display: block;
-    width: 100%;
-    padding: 11px 12px;
-    border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    font: inherit;
-    font-size: 13px;
-    line-height: 1.4;
-    cursor: pointer;
-  }
-
-  .search-result:last-child {
-    border-bottom: 0;
-  }
-
-  .search-result:hover {
-    background: rgba(232, 176, 75, 0.12);
-  }
-
-  .search-status {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.45;
-  }
-
-  .search-status[data-tone="error"] {
-    color: #f0c4ba;
-  }
-
-  .search-status[data-tone="success"] {
-    color: #c7f3df;
-  }
-
-  .sync-toast {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 35;
-    max-width: min(620px, calc(100vw - 32px));
-    padding: 10px 15px;
-    border-radius: 999px;
-    background: rgba(9, 14, 22, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--shadow);
-    color: var(--muted-strong);
-    font-size: 13px;
-    line-height: 1.4;
-    text-align: center;
-    backdrop-filter: blur(14px) saturate(130%);
-    -webkit-backdrop-filter: blur(14px) saturate(130%);
-  }
-
-  .mode-badge {
-    position: absolute;
-    left: 16px;
-    bottom: 16px;
-    z-index: 25;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    max-width: min(540px, calc(100vw - 32px));
-    padding: 10px 14px;
-    border-radius: 16px;
-    background: rgba(9, 14, 22, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--shadow);
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.45;
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
-  }
-
-  .mode-badge__text {
-    flex: 1;
-  }
-
-  .mode-badge__close {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    color: var(--muted);
-    font-size: 13px;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
-  }
-
-  .mode-badge__close:hover {
-    color: var(--text);
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .landmark-marker {
-    position: relative;
-    width: 22px;
-    height: 22px;
-    cursor: pointer;
-    border: 0;
-    background: transparent;
-  }
-
-  .landmark-dot {
-    position: absolute;
-    inset: 5px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid #0a0f16;
-    box-shadow: 0 0 0 6px rgba(232, 176, 75, 0.16);
-  }
-
-  .landmark-pulse {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: rgba(232, 176, 75, 0.36);
-    animation: landmark-pulse 2.2s ease-out infinite;
-  }
-
-  .landmark-marker--active .landmark-dot {
-    background: var(--accent-2);
-    box-shadow: 0 0 0 6px rgba(127, 211, 192, 0.16);
-  }
-
-  @keyframes landmark-pulse {
-    0% {
-      transform: scale(0.7);
-      opacity: 0.9;
-    }
-    100% {
-      transform: scale(2.3);
-      opacity: 0;
-    }
-  }
-
-  .popup-card h3 {
-    margin: 0 0 6px;
-    font-size: 15px;
-    color: var(--accent);
-    line-height: 1.2;
-  }
-
-  .popup-card p {
-    margin: 4px 0;
-    font-size: 12.5px;
-    line-height: 1.45;
-    color: var(--text);
-  }
-
-  .popup-card__badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 9px;
-    border-radius: 999px;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: capitalize;
-    vertical-align: middle;
-  }
-
-  .overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background:
-      radial-gradient(circle at 20% 0%, rgba(232, 176, 75, 0.11), transparent 50%),
-      radial-gradient(circle at 80% 100%, rgba(127, 211, 192, 0.08), transparent 48%),
-      rgba(6, 10, 16, 0.9);
-  }
-
-  .overlay[hidden] {
-    display: none;
-  }
-
-  .overlay__card {
-    width: min(560px, 100%);
-    padding: 30px 32px;
-    border-radius: 24px;
-    background: rgba(10, 15, 22, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: var(--shadow);
-  }
-
-  .overlay__card h2 {
-    margin: 0 0 10px;
-    font-family: "Fraunces", Georgia, serif;
-    font-size: 26px;
-    line-height: 1.05;
-  }
-
-  .overlay__card p {
-    margin: 8px 0 0;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.6;
-  }
-
-  .overlay__card code {
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--accent-2);
-  }
-
-  .maplibregl-ctrl-group,
-  .maplibregl-ctrl-scale,
-  .maplibregl-ctrl-attrib {
-    background: rgba(9, 14, 22, 0.72) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: var(--shadow) !important;
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
-  }
-
-  .maplibregl-ctrl-group button {
-    background: transparent !important;
-  }
-
-  .maplibregl-ctrl-icon {
-    filter: invert(0.92);
-  }
-
-  .maplibregl-popup-content {
-    background: rgba(10, 15, 22, 0.96);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    color: var(--text);
-    padding: 14px 16px;
-    box-shadow: var(--shadow);
-  }
-
-  .maplibregl-popup-tip {
-    border-top-color: rgba(10, 15, 22, 0.96) !important;
-    border-bottom-color: rgba(10, 15, 22, 0.96) !important;
-  }
-
-  .maplibregl-popup-close-button {
-    color: var(--muted);
-    font-size: 15px;
-    padding: 4px 8px;
-  }
-
-  .maplibregl-popup-close-button:hover {
-    color: var(--text);
-    background: transparent;
-  }
-
-  @media (max-width: 820px) {
-    .title-badge {
-      left: 12px;
-      top: 12px;
-    }
-  }
-
-  @media (max-width: 840px) {
-    .control-panel {
-      right: 12px;
-      top: 12px;
-    }
-
-    .sidebar {
-      left: 8px;
-      right: 8px;
-      top: auto;
-      bottom: 8px;
-      width: auto;
-      max-height: 50vh;
-    }
-
-    .sidebar.collapsed {
-      transform: translateY(calc(100% + 20px));
-    }
-
-    .sidebar-show {
-      top: auto;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    .sidebar__header {
-      padding: 16px 14px 12px;
-    }
-
-    .sidebar__header h1 {
-      font-size: 22px;
-    }
-
-    .sidebar__header p {
-      font-size: 12px;
-      margin-top: 6px;
-    }
-
-    .summary-grid {
-      padding: 10px 14px 0;
-      gap: 6px;
-    }
-
-    .summary-value {
-      font-size: 20px;
-    }
-
-    .sidebar__section {
-      padding: 10px 14px;
-    }
-  }
-
-  @media (max-width: 640px) {
-    html,
-    body {
-      overflow: hidden;
-    }
-
-    .title-badge {
-      top: 10px;
-      left: 10px;
-      right: 64px;
-      width: auto;
-      padding: 8px 12px;
-      max-width: none;
-    }
-
-    .title-badge__text {
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Sidebar: short peek by default, drag-handle to expand, own scroll area */
-    .sidebar {
-      left: 0;
-      right: 0;
-      bottom: 0;
-      top: auto;
-      width: 100%;
-      border-radius: var(--radius) var(--radius) 0 0;
-      max-height: 30vh;
-      max-height: 30dvh;
-    }
-
-    .sidebar.expanded {
-      max-height: 75vh;
-      max-height: 75dvh;
-    }
-
-    .sidebar__drag-handle {
-      display: block;
-      width: 100%;
-      height: 22px;
-      margin: 0;
-      padding: 0;
-      border: none;
-      background: transparent;
-      background-image: none;
-      position: relative;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .sidebar__drag-handle::before {
-      content: "";
-      position: absolute;
-      top: 9px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 36px;
-      height: 4px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.25);
-    }
-
-    .summary-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-
-    /* Control panel: collapses to a single icon button, expands on tap */
-    .control-panel {
-      top: 10px;
-      right: 10px;
-      width: 48px;
-      height: 48px;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      transition: width 0.25s ease, height 0.25s ease, padding 0.25s ease, border-radius 0.25s ease;
-    }
-
-    .control-panel.expanded {
-      width: min(320px, calc(100vw - 20px));
-      height: auto;
-      padding: 12px;
-      display: grid;
-      border-radius: var(--radius);
-    }
-
-    .control-panel-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 48px;
-      height: 48px;
-      border: none;
-      background: transparent;
-      color: var(--text);
-      font-size: 18px;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    .control-panel.expanded .control-panel-toggle {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 32px;
-      height: 32px;
-    }
-
-    .control-panel:not(.expanded) .search-box,
-    .control-panel:not(.expanded) .search-status,
-    .control-panel:not(.expanded) .control-stack {
-      display: none;
-    }
-
-    .search-box {
+  :root{
+    --canopy-dark:   #1f3a2e;
+    --moss:          #4c7a5d;
+    --bark:          #6b4a34;
+    --river:         #3c7a89;
+    --paper:         #efe9dd;
+    --paper-hi:      #f7f4ec;
+    --amber:         #d8a24a;
+    --ink:           #1c2420;
+    --line:          rgba(28,36,32,0.12);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family:'Inter', sans-serif;
+    color:var(--ink);
+    background:var(--paper);
+  }
+
+  h1,h2,h3, .display{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  #app{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: 64px 1fr;
+    height:100vh;
+    width:100vw;
+  }
+
+  header{
+    grid-column: 1 / -1;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+    background:var(--canopy-dark);
+    color:var(--paper-hi);
+    border-bottom:1px solid rgba(0,0,0,0.2);
+  }
+  header .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  header .brand svg{ flex-shrink:0; }
+  header h1{
+    font-size:18px;
+    margin:0;
+    color:var(--paper-hi);
+    line-height:1.1;
+  }
+  header .sub{
+    font-size:11px;
+    opacity:0.7;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:0.02em;
+  }
+  header .count{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    background:rgba(255,255,255,0.08);
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,0.15);
+  }
+  header .count b{ color:var(--amber); }
+
+  #sidebar{
+    border-right:1px solid var(--line);
+    background:var(--paper-hi);
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+  }
+  .district-header{
+    padding:14px 18px 8px;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--moss);
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    user-select:none;
+  }
+  .district-header .chevron{
+    font-size:11px;
+    transition:transform 0.15s ease;
+  }
+  .district-group.collapsed .chevron{ transform:rotate(-90deg); }
+  .district-group.collapsed .district-items{ display:none; }
+  .tree-item{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 18px;
+    cursor:pointer;
+    border-bottom:1px solid var(--line);
+    transition:background 0.15s ease;
+  }
+  .tree-item:hover, .tree-item.active{
+    background:var(--paper);
+  }
+  .tree-item.active{ box-shadow: inset 3px 0 0 var(--moss); }
+
+  .health-dot{
+    width:10px; height:10px; border-radius:50%;
+    margin-top:5px; flex-shrink:0;
+  }
+  .health-healthy{ background:var(--moss); }
+  .health-stressed{ background:var(--amber); }
+  .health-diseased{ background:#b0503a; }
+  .health-dead, .health-removed{ background:#8a8a8a; }
+
+  .tree-item .info b{ font-size:14px; display:block; }
+  .tree-item .info span{ font-size:12px; color:#5a625c; }
+  .scan-badge{
+    font-size:10px;
+    font-family:'IBM Plex Mono', monospace;
+    background:var(--river);
+    color:white;
+    padding:1px 6px;
+    border-radius:8px;
+    margin-left:6px;
+  }
+
+  #map{ width:100%; height:100%; }
+
+  .tree-marker{
+    width:22px; height:22px;
+    cursor:pointer;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+    position:relative;
+  }
+  .tree-marker .marker-ring{
+    position:absolute;
+    top:-6px; left:-6px;
+    width:34px; height:34px;
+    border-radius:50%;
+    border:2px solid var(--amber);
+    opacity:0;
+    pointer-events:none;
+  }
+  .tree-marker.selected .marker-ring{
+    opacity:1;
+    animation: tree-pulse 1.5s ease-out infinite;
+  }
+  @keyframes tree-pulse{
+    0%   { transform:scale(0.6); opacity:0.9; }
+    70%  { transform:scale(1.15); opacity:0; }
+    100% { transform:scale(1.15); opacity:0; }
+  }
+
+  .placement-marker{
+    width:28px; height:28px;
+    cursor:grab;
+    position:relative;
+  }
+  .placement-marker:active{ cursor:grabbing; }
+  .placement-marker .pm-dot{
+    width:16px; height:16px;
+    background:#e07a2f;
+    border:2.5px solid #fff;
+    border-radius:50%;
+    box-shadow:0 0 0 2px #e07a2f, 0 2px 8px rgba(0,0,0,0.35);
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+  }
+  .placement-marker .pm-ring{
+    position:absolute;
+    top:50%; left:50%;
+    width:36px; height:36px;
+    border-radius:50%;
+    border:2px solid #e07a2f;
+    transform:translate(-50%,-50%);
+    animation: pm-pulse 1.2s ease-out infinite;
+    pointer-events:none;
+  }
+  @keyframes pm-pulse{
+    0%   { transform:translate(-50%,-50%) scale(0.6); opacity:0.8; }
+    100% { transform:translate(-50%,-50%) scale(1.3); opacity:0; }
+  }
+
+  /* detail panel */
+  #detail{
+    position:absolute;
+    top:84px; right:20px;
+    width:380px;
+    max-height:calc(100vh - 104px);
+    overflow-y:auto;
+    background:var(--paper-hi);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.18);
+    transform:translateX(420px);
+    transition:transform 0.28s ease;
+    z-index:5;
+  }
+  #detail.open{ transform:translateX(0); }
+  /* ensure map canvas stays behind the detail panel */
+  #map .maplibregl-canvas-container { z-index: 0; }
+  #detail { z-index: 10; }
+
+
+  #detail .model-frame{
+    width:100%; height:220px;
+    background:linear-gradient(180deg, var(--canopy-dark), #142a20);
+    position:relative;
+  }
+  #detail model-viewer{ width:100%; height:100%; }
+  #detail .no-scan{
+    display:flex; align-items:center; justify-content:center;
+    height:100%; color:rgba(255,255,255,0.55);
+    font-size:13px; text-align:center; padding:0 30px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  #detail .no-scan-leaf{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100%; gap:8px;
+  }
+  #detail .no-scan-leaf img{
+    width:96px; height:96px; object-fit:contain; opacity:0.9;
+  }
+  #detail .no-scan-leaf span{
+    color:rgba(255,255,255,0.55);
+    font-size:12px; text-align:center; padding:0 20px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+
+  #detail .body{ padding:18px 20px 22px; }
+  #detail h2{ font-size:20px; margin:0 0 2px; }
+  #detail .latin{ font-style:italic; color:#5a625c; font-size:13px; margin-bottom:14px; }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px 16px;
+    margin:14px 0;
+    padding:14px 0;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .stat-grid div span{ display:block; }
+  .stat-grid .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:#5a625c; }
+  .stat-grid .value{ font-family:'IBM Plex Mono', monospace; font-size:14px; margin-top:2px; }
+
+  .close-btn{
+    position:absolute; top:10px; right:10px;
+    width:28px; height:28px; border-radius:50%;
+    background:rgba(0,0,0,0.35); color:white;
+    border:none; cursor:pointer; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2;
+  }
+
+  .add-btn{
+    margin:16px 18px;
+    padding:10px 14px;
+    background:var(--moss);
+    color:white;
+    border:none;
+    border-radius:8px;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .add-btn:hover{ background:#3f6a4f; }
+
+  .footnote{
+    padding:10px 18px 18px;
+    font-size:11px;
+    color:#7a8079;
+    line-height:1.5;
+  }
+
+  /* map popup styling */
+  .maplibregl-popup-content{
+    border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.2);
+    padding:14px 16px;
+  }
+  .maplibregl-popup-tip{ box-shadow:none; }
+
+  .admin-only{ display:none; }
+  .is-admin .admin-only{ display:block; }
+  button.admin-only{ display:none; }
+  .is-admin button.admin-only{ display:inline-block; }
+
+  #login-btn{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    background:rgba(255,255,255,0.08);
+    color:var(--paper-hi);
+    border:1px solid rgba(255,255,255,0.15);
+    padding:6px 14px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:background 0.15s;
+  }
+  #login-btn:hover{ background:rgba(255,255,255,0.15); }
+
+  /* login modal */
+  #login-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  #login-modal.open{ display:flex; }
+  .login-box{
+    background:var(--paper-hi);
+    padding:28px 24px 22px;
+    border-radius:12px;
+    width:300px;
+    box-shadow:0 20px 48px rgba(0,0,0,0.3);
+  }
+  .login-box h3{ margin:0 0 16px; font-size:17px; }
+  .login-box input{
+    width:100%;
+    padding:8px 10px;
+    margin-bottom:10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+  }
+  .login-box .login-actions{
+    display:flex;
+    gap:8px;
+    margin-top:14px;
+  }
+  .login-box .login-actions button{
+    flex:1;
+    padding:8px;
+    border-radius:6px;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+
+  /* model lightbox */
+  #model-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(10,14,11,0.88);
+    z-index:2000;
+    align-items:center;
+    justify-content:center;
+  }
+  #model-modal.open{ display:flex; }
+  #model-modal .modal-inner{
+    width:min(90vw, 1000px);
+    height:min(85vh, 800px);
+    position:relative;
+    background:linear-gradient(180deg, var(--canopy-dark), #142a20);
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 24px 64px rgba(0,0,0,0.5);
+  }
+  #model-modal model-viewer{ width:100%; height:100%; }
+  #model-modal .close-btn{
+    top:14px; right:14px;
+    width:34px; height:34px;
+    font-size:18px;
+    background:rgba(0,0,0,0.45);
+  }
+  .model-frame .expand-hint{
+    position:absolute;
+    bottom:10px; right:10px;
+    background:rgba(0,0,0,0.5);
+    color:white;
+    font-size:11px;
+    font-family:'IBM Plex Mono', monospace;
+    padding:4px 9px;
+    border-radius:12px;
+    pointer-events:none;
+    z-index:2;
+  }
+  @media (max-width: 780px){
+    #model-modal .modal-inner{ width:94vw; height:60vh; }
+  }
+
+  /* hamburger — hidden on desktop */
+  #hamburger-btn{
+    display:none;
+    background:rgba(255,255,255,0.08);
+    color:var(--paper-hi);
+    border:1px solid rgba(255,255,255,0.15);
+    width:36px; height:36px;
+    border-radius:8px;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    margin-right:10px;
+  }
+
+  #sidebar-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.4);
+    z-index:14;
+  }
+
+  /* ===================== MOBILE ===================== */
+  @media (max-width: 780px){
+    #app{
       grid-template-columns: 1fr;
+      grid-template-rows: 56px 1fr;
     }
+
+    #hamburger-btn{ display:flex; }
+    header h1{ font-size:15px; }
+    header .sub{ display:none; }
+    header .count{ font-size:11px; padding:5px 9px; }
+
+    #sidebar{
+      position:fixed;
+      top:0; left:0; bottom:0;
+      width:82%;
+      max-width:320px;
+      z-index:15;
+      transform:translateX(-100%);
+      transition:transform 0.25s ease;
+      box-shadow:2px 0 24px rgba(0,0,0,0.25);
+    }
+    #sidebar.open{ transform:translateX(0); }
+
+    #sidebar-backdrop.open{ display:block; }
+
+    /* detail panel becomes a bottom sheet */
+    #detail{
+      top:auto;
+      left:0;
+      right:0;
+      bottom:0;
+      width:100%;
+      max-width:none;
+      max-height:70vh;
+      border-radius:16px 16px 0 0;
+      transform:translateY(110%);
+    }
+    #detail.open{ transform:translateY(0); }
+
+    .add-btn{ margin:14px 16px; }
   }
 </style>
 </head>
 <body>
+
 <div id="app">
-  <div id="map" aria-label="Mapa Banje Luke"></div>
-
-  <div class="title-badge" aria-label="Naslov aplikacije">
-    <span class="title-badge__icon">🏙️</span>
-    <span class="title-badge__text"><em>Urban</em> Monitor KK</span>
-    <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Sakrij panel" title="Sakrij/prikaži panel">
-      <span class="sidebar-toggle__icon">◀</span>
+  <header>
+    <button id="hamburger-btn" onclick="toggleSidebar()" aria-label="Meni">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M12 21V12.5" stroke="#a56a2e" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="#a56a2e" stroke-width="1.1" stroke-linecap="round"/>
+        <circle cx="12" cy="7.2" r="4.6" fill="#d8a24a"/>
+        <circle cx="7.4" cy="10" r="3.1" fill="#d8a24a"/>
+        <circle cx="16.6" cy="10" r="3.1" fill="#d8a24a"/>
+      </svg>
+      <div>
+        <h1>Drveće Banjaluke</h1>
+        <div class="sub">stablo-po-stablo · 3D katalog</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="count"><b id="tree-count">0</b> stabala popisano</div>
+      <button id="login-btn" onclick="toggleLogin()">🔐 Admin</button>
+    </div>
+  </header>
+
+  <div id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
+
+  <div id="sidebar">
+    <div id="tree-list"></div>
+    <button class="add-btn admin-only" onclick="if(window.isAdmin){alert('Klikni na mapu na mjestu gdje želiš dodati stablo — otvorit će se obrazac.');}else{toggleLogin();}">+ Dodaj stablo</button>
+    <p class="footnote">🔐 Prijavi se kao admin za dodavanje i uređivanje stabala. Klikni na stablo za detalje.</p>
   </div>
 
-  <button id="sidebar-show" class="sidebar-show" aria-label="Prikaži panel" title="Prikaži panel" style="display:none">▶</button>
+  <div style="position:relative;">
+    <div id="map"></div>
 
-  <aside class="sidebar" aria-label="Pregled i filteri">
-    <button type="button" class="sidebar__drag-handle" id="sidebar-drag-handle" aria-label="Proširi/skupi panel" style="display:none"></button>
-    <div class="sidebar__header">
-      <h1>Urban Monitor KK</h1>
-      <p>
-        Inventar uličnog nameštaja — klupe i korpe za otpatke
-        u centru Banje Luke.
-      </p>
-      <div class="status-row">
-        <span class="status-pill">OpenFreeMap + MapLibre</span>
-        <span class="status-pill">3D zgrade i terenski podaci</span>
+    <div id="detail">
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+      <div class="model-frame" id="model-frame">
+        <div class="no-scan">Za ovo stablo još nema 3D skena.</div>
       </div>
-    </div>
+      <div class="body">
+        <h2 id="d-name"></h2>
+        <div class="latin" id="d-latin"></div>
+        <div class="stat-grid">
+          <div><span class="label">Visina</span><span class="value" id="d-height"></span></div>
+          <div><span class="label">Prečnik debla</span><span class="value" id="d-trunk"></span></div>
+          <div><span class="label">Zasađeno</span><span class="value" id="d-planted"></span></div>
+          <div><span class="label">Stanje</span><span class="value" id="d-health"></span></div>
+        </div>
+        <p id="d-notes" style="font-size:13px; line-height:1.6; color:#3a423c;"></p>
 
-    <div class="summary-grid" aria-label="Sažetak podataka">
-      <div class="summary-card">
-        <span class="summary-value" id="mapped-count">0</span>
-        <span class="summary-label">Ucrtano</span>
+        <!-- Edit section (hidden until "Uredi" is clicked) -->
+        <div id="d-edit-section" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <input type="file" id="scan-file-input" accept=".glb" style="display:none" onchange="uploadScan(this.files[0])">
+          <button id="d-scan-btn" onclick="document.getElementById('scan-file-input').click()" style="width:100%;padding:10px;margin-bottom:14px;background:var(--river);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">📦 Dodaj 3D sken</button>
+          <div class="stat-grid" style="grid-template-columns:1fr;">
+            <div>
+              <span class="label">Visina (m)</span>
+              <input id="e-height" type="number" step="0.1" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:'IBM Plex Mono',monospace;margin-top:2px;">
+            </div>
+            <div>
+              <span class="label">Prečnik debla (cm)</span>
+              <input id="e-trunk" type="number" step="0.1" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:'IBM Plex Mono',monospace;margin-top:2px;">
+            </div>
+            <div>
+              <span class="label">Zasađeno (godina)</span>
+              <input id="e-planted" type="number" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:'IBM Plex Mono',monospace;margin-top:2px;">
+            </div>
+            <div>
+              <span class="label">Stanje</span>
+              <select id="e-health" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;margin-top:2px;">
+                <option value="healthy">Zdravo</option>
+                <option value="stressed">Pod stresom</option>
+                <option value="diseased">Bolesno</option>
+                <option value="dead">Mrtvo</option>
+                <option value="removed">Uklonjeno</option>
+              </select>
+            </div>
+          </div>
+          <label class="label" style="display:block;margin-top:8px;">Napomene</label>
+          <textarea id="e-notes" rows="3" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;margin-top:2px;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button id="d-save-btn" onclick="saveTreeEdit()" style="flex:1;padding:8px;background:var(--moss);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">Sačuvaj</button>
+            <button id="d-cancel-btn" onclick="cancelEdit()" style="flex:1;padding:8px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;font-weight:500;font-size:13px;cursor:pointer;">Odustani</button>
+          </div>
+          <button id="d-delete-btn" onclick="deleteTree()" style="width:100%;padding:8px;margin-top:8px;background:transparent;color:#b0503a;border:1px solid #b0503a;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">🗑 Obriši stablo</button>
+        </div>
       </div>
-      <div class="summary-card">
-        <span class="summary-value" id="visible-count">0</span>
-        <span class="summary-label">Vidljivo</span>
-      </div>
-      <div class="summary-card">
-        <span class="summary-value" id="landmark-count">0</span>
-        <span class="summary-label">Tačke</span>
-      </div>
-    </div>
-
-    <div class="sidebar__section">
-      <div class="section__title">Tačke</div>
-      <p style="margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45;">
-        Ovo su gradske tačke na koje možete odmah da poletite: centar, Kastel, Ferhadija i druge.
-      </p>
-      <div id="landmark-list" class="landmark-list"></div>
-    </div>
-
-    <div class="sidebar__section">
-      <div class="section__title">Filteri</div>
-      <div class="filter-grid">
-        <label class="filter-card">
-          <input type="checkbox" data-filter="type" value="bench" checked>
-          <span class="swatch" style="background: var(--accent-2)"></span>
-          <span class="filter-card__body">
-            <span class="filter-card__label">Klupe</span>
-            <span class="filter-card__meta">Drvene i metalne pozicije u javnom prostoru.</span>
-          </span>
-        </label>
-
-        <label class="filter-card">
-          <input type="checkbox" data-filter="type" value="bin" checked>
-          <span class="swatch" style="background: var(--accent)"></span>
-          <span class="filter-card__body">
-            <span class="filter-card__label">Korpe za otpatke</span>
-            <span class="filter-card__meta">Obične i korpe sa poklopcem ili za reciklažu.</span>
-          </span>
-        </label>
-
-        <label class="filter-card">
-          <input type="checkbox" data-filter="condition" value="good" checked>
-          <span class="swatch swatch-good"></span>
-          <span class="filter-card__body">
-            <span class="filter-card__label">Dobro</span>
-            <span class="filter-card__meta">Inventar koji vizuelno izgleda uredno i stabilno.</span>
-          </span>
-        </label>
-
-        <label class="filter-card">
-          <input type="checkbox" data-filter="condition" value="fair" checked>
-          <span class="swatch swatch-fair"></span>
-          <span class="filter-card__body">
-            <span class="filter-card__label">Zadovoljavajuće</span>
-            <span class="filter-card__meta">Ima tragove habanja, ali je i dalje u upotrebi.</span>
-          </span>
-        </label>
-
-        <label class="filter-card">
-          <input type="checkbox" data-filter="condition" value="poor" checked>
-          <span class="swatch swatch-poor"></span>
-          <span class="filter-card__body">
-            <span class="filter-card__label">Loše</span>
-            <span class="filter-card__meta">Potrebna je zamena, popravka ili nova evidencija.</span>
-          </span>
-        </label>
-      </div>
-    </div>
-
-    <div class="sidebar__footer">
-      Podaci se čuvaju u Cloudflare KV bazi.
-      Za dodavanje ili izmenu stavki koristite <a href="/admin" style="color:var(--accent);text-decoration:none">admin panel</a>.
-    </div>
-  </aside>
-
-  <section class="control-panel" aria-label="Kontrole mape">
-    <button type="button" class="control-panel-toggle" id="control-panel-toggle" aria-label="Prikaži/sakrij kontrole mape" title="Kontrole mape" style="display:none">⚙</button>
-    <div class="search-box">
-      <input
-        id="search-input"
-        class="search-box__input"
-        type="search"
-        placeholder="Pretraži ulicu ili mesto u Banjoj Luci"
-        aria-label="Pretraži lokaciju"
-      >
-      <button class="btn btn--primary" id="search-button" type="button">Pretraži</button>
-      <div class="search-results" id="search-results" hidden></div>
-    </div>
-    <div class="search-status" id="search-status" hidden></div>
-
-    <div class="control-stack">
-      <button class="btn btn--grid" id="reset-button" type="button">
-        <span class="btn__icon">↺</span>
-        <span>Početni pogled</span>
-      </button>
-      <button class="btn btn--grid" id="toggle-3d-button" type="button">
-        <span class="btn__icon" id="toggle-3d-icon">⬡</span>
-        <span id="toggle-3d-label">2D pogled</span>
-      </button>
-      <button class="btn btn--grid" id="locate-button" type="button">
-        <span class="btn__icon">◎</span>
-        <span>Moja lokacija</span>
-      </button>
-    </div>
-  </section>
-
-  <div class="sync-toast" id="sync-status" aria-live="polite">Učitavanje podataka...</div>
-
-  <div class="mode-badge" id="mode-badge" role="note">
-    <span class="mode-badge__text">Free OSM režim sa OpenFreeMap stilom. Dodajte token samo ako želite druge izvore.</span>
-    <button class="mode-badge__close" id="mode-badge-close" type="button" aria-label="Zatvori obaveštenje">✕</button>
-  </div>
-
-  <div class="overlay" id="startup-overlay" hidden>
-    <div class="overlay__card">
-      <h2>Mapa se ne može pokrenuti</h2>
-      <p>
-        Ovaj prikaz zahteva WebGL. Ako pregledač ne podržava 3D canvas,
-        probajte noviju verziju ili drugi pregledač.
-      </p>
-      <p>
-        Kada sve radi, očekujte 3D zgrade, brze skokove do Banja Luke i
-        sloj sa vašim inventarom.
-      </p>
     </div>
   </div>
 </div>
 
-<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<!-- Login modal -->
+<div id="login-modal">
+  <div class="login-box">
+    <h3>🔐 Admin prijava</h3>
+    <p style="font-size:12px;color:#5a625c;margin:0 0 12px;">Samo vlasnik može dodavati i uređivati stabla.</p>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="email">
+    <input id="login-password" type="password" placeholder="Lozinka" autocomplete="current-password">
+    <div id="login-error" style="font-size:12px;color:#b0503a;display:none;margin-bottom:8px;"></div>
+    <div class="login-actions">
+      <button onclick="doLogin()" style="background:var(--moss);color:white;border:none;">Prijavi se</button>
+      <button onclick="closeLoginModal()" style="background:transparent;color:var(--ink);border:1px solid var(--line);">Odustani</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3D model lightbox -->
+<div id="model-modal" onclick="if(event.target===this) closeModelModal();">
+  <div class="modal-inner">
+    <button class="close-btn" onclick="closeModelModal()">✕</button>
+    <div id="modal-model-frame" style="width:100%;height:100%;"></div>
+  </div>
+</div>
+
+<script type="module">
+/* ============================================================
+   SUPABASE CONNECTION
+   Your Supabase project URL and anon key.
+   ============================================================ */
+const SUPABASE_URL = 'https://qcjnnvsaskdhoyschclq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjam5udnNhc2tkaG95c2NoY2xxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NzIzMTIsImV4cCI6MjA5OTI0ODMxMn0.lNODpkRkBNp36ETdXZZf-m6l9hyEpb7HwwWUjrpooxE';
+let supabase = null;
+let usingRealData = false;
+
+try {
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  usingRealData = true;
+
+  // Check if already logged in (session persists in browser)
+  const { data: { session } } = await supabase.auth.getSession();
+  window.isAdmin = !!session;
+} catch (err) {
+  console.warn('Supabase init failed, running without database:', err);
+}
+
+function slugifyLocalName(name){
+  if (!name) return null;
+  const map = {'č':'c','ć':'c','š':'s','ž':'z','đ':'dj','Č':'c','Ć':'c','Š':'s','Ž':'z','Đ':'dj'};
+  return name.split('').map(ch => map[ch] || ch).join('')
+    .toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+window.slugifyLocalName = slugifyLocalName;
+window.leafIconFallback = function(imgEl){
+  imgEl.parentElement.innerHTML = '<div class="no-scan">Za ovo stablo još nema 3D skena.</div>';
+};
+
+async function loadTrees(){
+  if (!supabase) return [];
+
+  const { data, error } = await supabase.from('tree_map').select('*');
+  if (error) {
+    console.error('Supabase fetch failed:', error);
+    window.supabaseError = error.message;
+    return [];
+  }
+  return data.map(row => ({
+    id: row.id,
+    name: row.local_name || row.latin_name || 'Nepoznata vrsta',
+    latin: row.latin_name || '',
+    district: row.district_name || 'Ostalo',
+    lat: row.lat,
+    lng: row.lng,
+    height: row.height_m,
+    trunk: row.trunk_diameter_cm,
+    planted: row.planted_year,
+    health: row.health_status || 'healthy',
+    notes: row.condition_notes,
+    model: row.latest_model_path
+      ? `${SUPABASE_URL}/storage/v1/object/public/tree-models/${row.latest_model_path}`
+      : null,
+    leafIcon: row.local_name
+      ? `${SUPABASE_URL}/storage/v1/object/public/leaf-icons/leaf-${slugifyLocalName(row.local_name)}.webp`
+      : null
+
+  }));
+}
+
+async function loadSpecies(){
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('species').select('id, local_name, latin_name').order('local_name');
+  if (error) { console.error('Species fetch failed:', error); return []; }
+  return data;
+}
+
+async function loadDistricts(){
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('district').select('id, name');
+  if (error) { console.error('District fetch failed:', error); return []; }
+  return data;
+}
+
+window.supabase = supabase;
+window.usingRealData = usingRealData;
+window.SUPABASE_URL = SUPABASE_URL;
+const [loadedTrees, loadedSpecies, loadedDistricts] = await Promise.all([
+  loadTrees(), loadSpecies(), loadDistricts()
+]);
+window.trees = loadedTrees;
+window.speciesList = loadedSpecies;
+window.districtList = loadedDistricts;
+window.dispatchEvent(new Event('trees-ready'));
+</script>
+
 <script>
-  const CITY = {
-    center: [17.1910, 44.7725],
-    zoom: 16.35,
-    pitch3d: 64,
-    pitch2d: 0,
-    bearing: -18,
-    searchViewbox: [17.08, 44.84, 17.31, 44.72]
-  };
+// Map is created immediately so it's visible while tree/species/district data
+// loads over the network — same map, same tiles, same behavior, just no
+// longer blocked on the Supabase fetches.
+let map;
+if (typeof maplibregl === 'undefined') {
+  document.getElementById('map').innerHTML =
+    '<div style="padding:24px;font-family:sans-serif;color:#6b4a34;">' +
+    'Karta se nije učitala jer je blokiran pristup CDN-u. ' +
+    'Provjeri internet konekciju ili isključi ad-blocker za ovu stranicu.</div>';
+  throw new Error('MapLibre GL JS failed to load from CDN — check network/ad-blocker.');
+} else {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/bright',
+    center: [17.1938, 44.7730],
+    zoom: 15.5,
+    pitch: 45,
+    bearing: -17.6,
+    canvasContextAttributes: { antialias: true }
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 
-  const API_URL = '/api/points';
-  const STATIC_URL = '/points.geojson';
-
-  const landmarks = [
-    {
-      id: 'kastel',
-      name: 'Tvrđava Kastel',
-      description: 'Stara gradska jezgra uz Vrbas i jedan od najjačih obala grada.',
-      coordinates: [17.1908511, 44.7664626],
-      camera: { zoom: 16.9, pitch: 68, bearing: 18 }
-    },
-    {
-      id: 'ferhadija',
-      name: 'Ferhadija',
-      description: 'Obnovljeni simbol grada i važna tačka identiteta.',
-      coordinates: [17.1872838, 44.7674131],
-      camera: { zoom: 16.9, pitch: 66, bearing: -38 }
-    },
-    {
-      id: 'trg-krajine',
-      name: 'Trg Krajine',
-      description: 'Gradski dnevni boravak, šetnja i okupljanje u centru.',
-      coordinates: [17.1893558, 44.7699766],
-      camera: { zoom: 17.0, pitch: 63, bearing: 90 }
-    },
-    {
-      id: 'park-petar-kocic',
-      name: 'Park Petar Kočić',
-      description: 'Zelena pauza odmah uz najveći gradski promet.',
-      coordinates: [17.1884038, 44.7703348],
-      camera: { zoom: 17.0, pitch: 64, bearing: 132 }
-    },
-    {
-      id: 'hram-hrista-spasitelja',
-      name: 'Hram Hrista Spasitelja',
-      description: 'Monumentalna crkva i vizuelno sidro gradskog centra.',
-      coordinates: [17.1917339, 44.7722669],
-      camera: { zoom: 16.95, pitch: 67, bearing: -16 }
-    },
-    {
-      id: 'banski-dvor',
-      name: 'Banski dvor',
-      description: 'Kulturni centar, terasa i jedna od najboljih 3D tačaka.',
-      coordinates: [17.1923150, 44.7728986],
-      camera: { zoom: 16.95, pitch: 66, bearing: -52 }
-    }
-  ];
-
-  const typeMeta = {
-    bench: {
-      label: 'klupa',
-      icon: '🪑',
-      color: '#7fd3c0'
-    },
-    bin: {
-      label: 'korpa za otpatke',
-      icon: '🗑️',
-      color: '#e8b04b'
-    }
-  };
-
-  const conditionMeta = {
-    good: {
-      label: 'dobro',
-      color: '#2ecc71'
-    },
-    fair: {
-      label: 'zadovoljavajuće',
-      color: '#f1c40f'
-    },
-    poor: {
-      label: 'loše',
-      color: '#e74c3c'
-    }
-  };
-
-  const BUILDING_LAYER_ID = 'banja-luka-3d-buildings';
-  const INVENTORY_LAYER_ID = 'banja-luka-inventory';
-
-  /* ── Icon registration (SVG → canvas → ImageData, synchronous) ── */
-  const _COLORS = { good: '#2ecc71', fair: '#f1c40f', poor: '#e74c3c' };
-  const _ICON_SIZE = 64;
-
-  const _BENCH_SVG = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-      <defs>
-        <filter id="bench-shadow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="1.6"/>
-        </filter>
-      </defs>
-      <g transform="translate(0,2)" filter="url(#bench-shadow)" opacity="0.45" fill="#000000">
-        <rect x="9"  y="11" width="6"  height="29" rx="3"/>
-        <rect x="10" y="13" width="42" height="5" rx="2.5"/>
-        <rect x="10" y="23" width="42" height="5" rx="2.5"/>
-        <rect x="6"  y="35" width="52" height="7" rx="3"/>
-        <rect x="12" y="42" width="6"  height="15" rx="2"/>
-        <rect x="46" y="42" width="6"  height="15" rx="2"/>
-      </g>
-      <g fill="__COLOR__">
-        <rect x="9"  y="11" width="6"  height="29" rx="3"/>
-        <rect x="10" y="13" width="42" height="5" rx="2.5"/>
-        <rect x="10" y="23" width="42" height="5" rx="2.5"/>
-        <rect x="6"  y="35" width="52" height="7" rx="3"/>
-        <rect x="12" y="42" width="6"  height="15" rx="2"/>
-        <rect x="46" y="42" width="6"  height="15" rx="2"/>
-      </g>
-    </svg>`;
-
-  const _BIN_SVG = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-      <defs>
-        <filter id="bin-shadow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="1.6"/>
-        </filter>
-      </defs>
-      <g transform="translate(0,2)" filter="url(#bin-shadow)" opacity="0.45" fill="#000000">
-        <rect x="27" y="7"  width="10" height="6" rx="2"/>
-        <rect x="14" y="14" width="36" height="7" rx="3"/>
-        <path d="M18,23 L46,23 L42.5,55 Q42.2,59 38,59 L26,59 Q21.8,59 21.5,55 Z"/>
-      </g>
-      <g fill="__COLOR__">
-        <rect x="27" y="7"  width="10" height="6" rx="2"/>
-        <rect x="14" y="14" width="36" height="7" rx="3"/>
-        <path d="M18,23 L46,23 L42.5,55 Q42.2,59 38,59 L26,59 Q21.8,59 21.5,55 Z"/>
-        <g opacity="0.45">
-          <rect x="26.5" y="27" width="3" height="26" rx="1.5" fill="#ffffff"/>
-          <rect x="32.5" y="27" width="3" height="26" rx="1.5" fill="#ffffff"/>
-          <rect x="38.5" y="27" width="3" height="26" rx="1.5" fill="#ffffff"/>
-        </g>
-      </g>
-    </svg>`;
-
-  function _svgToImageData(svgStr) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = _ICON_SIZE; c.height = _ICON_SIZE;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(img, 0, 0, _ICON_SIZE, _ICON_SIZE);
-        resolve(ctx.getImageData(0, 0, _ICON_SIZE, _ICON_SIZE));
-      };
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
-    });
-  }
-
-  async function registerInventoryIcons() {
-    if (map.hasImage('bench-good')) return;
-    for (const [cond, hex] of Object.entries(_COLORS)) {
-      const benchData = await _svgToImageData(_BENCH_SVG.replaceAll('__COLOR__', hex));
-      const binData = await _svgToImageData(_BIN_SVG.replaceAll('__COLOR__', hex));
-      map.addImage(`bench-${cond}`, benchData);
-      map.addImage(`bin-${cond}`, binData);
-    }
-  }
-
-  const mappedCountEl = document.getElementById('mapped-count');
-  const visibleCountEl = document.getElementById('visible-count');
-  const landmarkCountEl = document.getElementById('landmark-count');
-  const landmarkListEl = document.getElementById('landmark-list');
-  const syncStatusEl = document.getElementById('sync-status');
-  const searchInputEl = document.getElementById('search-input');
-  const searchButtonEl = document.getElementById('search-button');
-  const searchResultsEl = document.getElementById('search-results');
-  const searchStatusEl = document.getElementById('search-status');
-  const resetButtonEl = document.getElementById('reset-button');
-  const toggle3dButtonEl = document.getElementById('toggle-3d-button');
-  const toggle3dLabelEl = document.getElementById('toggle-3d-label');
-  const toggle3dIconEl = document.getElementById('toggle-3d-icon');
-  const locateButtonEl = document.getElementById('locate-button');
-  const modeBadgeEl = document.getElementById('mode-badge');
-  const modeBadgeCloseEl = document.getElementById('mode-badge-close');
-  const startupOverlayEl = document.getElementById('startup-overlay');
-
-  let map;
-  let currentCollection = emptyCollection();
-  let buildingLayerEnabled = true;
-  let activeLandmarkId = '';
-  let landmarkMarkers = new Map();
-  let inventorySourceReady = false;
-
-  function emptyCollection() {
-    return {
-      type: 'FeatureCollection',
-      features: []
-    };
-  }
-
-  function normalizeCollection(value) {
-    if (!value) {
-      return emptyCollection();
-    }
-
-    if (Array.isArray(value)) {
-      return {
-        type: 'FeatureCollection',
-        features: value.filter(Boolean)
-      };
-    }
-
-    if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
-      return {
-        ...value,
-        type: 'FeatureCollection',
-        features: value.features.filter(Boolean)
-      };
-    }
-
-    if (value.type === 'Feature') {
-      return {
-        type: 'FeatureCollection',
-        features: [value]
-      };
-    }
-
-    if (Array.isArray(value.features)) {
-      return {
-        type: 'FeatureCollection',
-        features: value.features.filter(Boolean)
-      };
-    }
-
-    return emptyCollection();
-  }
-
-  function escapeHtml(value) {
-    return String(value)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-  }
-
-  function setSyncStatus(message) {
-    syncStatusEl.textContent = message;
-  }
-
-  function setSearchStatus(message, tone = '') {
-    if (!message) {
-      searchStatusEl.hidden = true;
-      searchStatusEl.removeAttribute('data-tone');
-      searchStatusEl.textContent = '';
-      return;
-    }
-
-    searchStatusEl.textContent = message;
-    searchStatusEl.hidden = false;
-    if (tone) {
-      searchStatusEl.setAttribute('data-tone', tone);
-    } else {
-      searchStatusEl.removeAttribute('data-tone');
-    }
-  }
-
-  function clearSearchResults() {
-    searchResultsEl.hidden = true;
-    searchResultsEl.innerHTML = '';
-  }
-
-  function getActiveValues(filterName) {
-    return Array.from(document.querySelectorAll(`input[data-filter="${filterName}"]:checked`))
-      .map(el => el.value);
-  }
-
-  function matchesFilters(feature) {
-    const props = feature.properties || {};
-    const activeTypes = getActiveValues('type');
-    const activeConditions = getActiveValues('condition');
-    return activeTypes.includes(props.type) && activeConditions.includes(props.condition);
-  }
-
-  function updateCounters() {
-    mappedCountEl.textContent = String(currentCollection.features.length);
-    visibleCountEl.textContent = String(currentCollection.features.filter(matchesFilters).length);
-    landmarkCountEl.textContent = String(landmarks.length);
-  }
-
-  function buildLayerFilter() {
-    const activeTypes = getActiveValues('type');
-    const activeConditions = getActiveValues('condition');
-
-    if (!activeTypes.length || !activeConditions.length) {
-      return ['==', ['get', 'id'], '__no_results__'];
-    }
-
-    return [
-      'all',
-      ['any', ...activeTypes.map((type) => ['==', ['get', 'type'], type])],
-      ['any', ...activeConditions.map((condition) => ['==', ['get', 'condition'], condition])]
-    ];
-  }
-
-  function applyInventoryFilter() {
-    if (!map || !map.getLayer(INVENTORY_LAYER_ID)) {
-      return;
-    }
-
-    map.setFilter(INVENTORY_LAYER_ID, buildLayerFilter());
-    updateCounters();
-  }
-
-  let _syncRetryTimer = null;
-
-  async function syncInventorySource() {
-    if (!map) return;
-
-    const source = map.getSource('inventory-points');
-
-    /* If source already exists, just update data */
-    if (source) {
-      source.setData(currentCollection);
-      inventorySourceReady = true;
-      applyInventoryFilter();
-      return;
-    }
-
-    /* Source doesn't exist yet — wait for style to be fully ready */
-    if (!map.isStyleLoaded()) {
-      if (!_syncRetryTimer) {
-        _syncRetryTimer = setTimeout(() => { _syncRetryTimer = null; syncInventorySource(); }, 500);
-      }
-      return;
-    }
-
-    try {
-      map.addSource('inventory-points', {
-        type: 'geojson',
-        data: currentCollection
-      });
-
-      await registerInventoryIcons();
-
-      map.addLayer({
-        id: INVENTORY_LAYER_ID,
-        type: 'symbol',
-        source: 'inventory-points',
-        layout: {
-          'icon-image': [
-            'match',
-            ['get', 'type'],
-            'bench', ['match', ['get', 'condition'],
-              'good', 'bench-good', 'fair', 'bench-fair', 'poor', 'bench-poor', 'bench-fair'],
-            'bin', ['match', ['get', 'condition'],
-              'good', 'bin-good', 'fair', 'bin-fair', 'poor', 'bin-poor', 'bin-fair'],
-            'bench-fair'
-          ],
-          'icon-size': [
-            'interpolate', ['linear'], ['zoom'],
-            10, 0.25,
-            14, 0.35,
-            17, 0.45,
-            20, 0.55
-          ],
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'icon-anchor': 'center'
-        }
-      });
-
-      map.on('click', INVENTORY_LAYER_ID, (event) => {
-        const feature = event.features && event.features[0];
-        if (!feature) return;
-        openFeaturePopup(feature, event.lngLat);
-      });
-
-      map.on('mouseenter', INVENTORY_LAYER_ID, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-
-      map.on('mouseleave', INVENTORY_LAYER_ID, () => {
-        map.getCanvas().style.cursor = '';
-      });
-
-      inventorySourceReady = true;
-      applyInventoryFilter();
-    } catch (err) {
-      console.warn('syncInventorySource failed, retrying:', err);
-      if (!_syncRetryTimer) {
-        _syncRetryTimer = setTimeout(() => { _syncRetryTimer = null; syncInventorySource(); }, 1000);
+  // 3D buildings — OpenFreeMap's "bright" style doesn't ship extrusion by
+  // default, so add it from the same vector source. render_height /
+  // render_min_height come from OSM building data (per OpenFreeMap / MapLibre docs).
+  map.on('load', () => {
+    const layers = map.getStyle().layers;
+    let labelLayerId;
+    for (const layer of layers) {
+      if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+        labelLayerId = layer.id;
+        break;
       }
     }
-  }
-
-  function openFeaturePopup(feature, lngLat) {
-    const props = feature.properties || {};
-    const type = typeMeta[props.type] || {
-      label: props.type || 'stavka',
-      icon: '•',
-      color: '#7fd3c0'
-    };
-    const condition = conditionMeta[props.condition] || {
-      label: props.condition || 'nepoznato',
-      color: '#7fd3c0'
-    };
-
-    const extraRows = [];
-
-    if (props.type === 'bench') {
-      extraRows.push(`<p>Materijal: ${escapeHtml(props.material || '—')}</p>`);
-      extraRows.push(`<p>Naslon: ${props.has_backrest ? 'Da' : 'Ne'}</p>`);
-    } else if (props.type === 'bin') {
-      extraRows.push(`<p>Vrsta korpe: ${escapeHtml(props.bin_type || '—')}</p>`);
-      extraRows.push(`<p>Poklopac: ${props.has_lid ? 'Da' : 'Ne'}</p>`);
-    }
-
-    if (props.notes) {
-      extraRows.push(`<p>Napomena: ${escapeHtml(props.notes)}</p>`);
-    }
-
-    extraRows.push(`<p>Popisano: ${escapeHtml(props.date_surveyed || 'nepoznato')}</p>`);
-
-    new maplibregl.Popup({
-      closeButton: true,
-      closeOnClick: true,
-      maxWidth: '280px',
-      offset: 16
-    })
-      .setLngLat(lngLat || feature.geometry.coordinates)
-      .setHTML(`
-        <div class="popup-card">
-          <h3>${escapeHtml(type.icon)} ${escapeHtml(type.label)}</h3>
-          <p><span class="popup-card__badge" style="background:${condition.color}">${escapeHtml(condition.label)}</span></p>
-          ${extraRows.join('')}
-        </div>
-      `)
-      .addTo(map);
-  }
-
-  function setActiveLandmark(id) {
-    activeLandmarkId = id || '';
-
-    document.querySelectorAll('.landmark-item').forEach((button) => {
-      button.classList.toggle('landmark-item--active', button.dataset.landmarkId === activeLandmarkId);
+    map.addSource('openfreemap-buildings', {
+      type: 'vector',
+      url: 'https://tiles.openfreemap.org/planet'
     });
-
-    landmarkMarkers.forEach((marker, markerId) => {
-      const element = marker.getElement();
-      if (element) {
-        element.classList.toggle('landmark-marker--active', markerId === activeLandmarkId);
-      }
-    });
-  }
-
-  function flyToLandmark(landmark) {
-    setActiveLandmark(landmark.id);
-    map.flyTo({
-      center: landmark.coordinates,
-      zoom: landmark.camera.zoom,
-      pitch: landmark.camera.pitch,
-      bearing: landmark.camera.bearing,
-      duration: 2600,
-      curve: 1.4,
-      essential: true
-    });
-  }
-
-  function renderLandmarks() {
-    landmarkListEl.innerHTML = '';
-    landmarkMarkers.forEach((marker) => marker.remove());
-    landmarkMarkers.clear();
-
-    const fragment = document.createDocumentFragment();
-
-    landmarks.forEach((landmark) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'landmark-item';
-      button.dataset.landmarkId = landmark.id;
-      button.innerHTML = `
-        <span class="landmark-item__name">${escapeHtml(landmark.name)}</span>
-        <span class="landmark-item__desc">${escapeHtml(landmark.description)}</span>
-      `;
-      button.addEventListener('click', () => {
-        flyToLandmark(landmark);
-        const marker = landmarkMarkers.get(landmark.id);
-        if (marker && marker.getPopup()) {
-          marker.getPopup().addTo(map);
-        }
-      });
-      fragment.appendChild(button);
-
-      const markerElement = document.createElement('button');
-      markerElement.type = 'button';
-      markerElement.className = 'landmark-marker';
-      markerElement.setAttribute('aria-label', landmark.name);
-      markerElement.title = landmark.name;
-      markerElement.innerHTML = '<span class="landmark-pulse"></span><span class="landmark-dot"></span>';
-
-      markerElement.addEventListener('click', () => flyToLandmark(landmark));
-
-      const popup = new maplibregl.Popup({
-        closeButton: true,
-        closeOnClick: true,
-        maxWidth: '280px',
-        offset: 18
-      }).setHTML(`
-        <div class="popup-card">
-          <h3>${escapeHtml(landmark.name)}</h3>
-          <p>${escapeHtml(landmark.description)}</p>
-          <p>Brzi skok do ove tačke otvara 3D pogled u centru grada.</p>
-        </div>
-      `);
-
-      const marker = new maplibregl.Marker({
-        element: markerElement,
-        anchor: 'bottom'
-      })
-        .setLngLat(landmark.coordinates)
-        .setPopup(popup)
-        .addTo(map);
-
-      landmarkMarkers.set(landmark.id, marker);
-    });
-
-    landmarkListEl.appendChild(fragment);
-  }
-
-  async function loadCollection() {
-    // Try live API first, fall back to static file
-    for (const url of [API_URL, STATIC_URL]) {
-      try {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) continue;
-        const data = await response.json();
-        const collection = normalizeCollection(data);
-        if (collection.features.length > 0) return collection;
-      } catch { /* try next */ }
-    }
-    return emptyCollection();
-  }
-
-  function configureAtmosphere() {
-    if (typeof map.setFog === 'function') {
-      try {
-        map.setFog({
-          range: [0.7, 9],
-          color: '#dfe4ea',
-          'high-color': '#c3cfdd',
-          'space-color': '#08111a',
-          'horizon-blend': 0.08,
-          'star-intensity': 0.08
-        });
-      } catch (error) {
-        console.warn('Fog not supported:', error);
-      }
-    }
-
-    if (typeof map.setLight === 'function') {
-      try {
-        const now = new Date();
-        const hours = now.getHours() + now.getMinutes() / 60;
-        const cycle = Math.max(0, Math.min(1, (hours - 6) / 12));
-        const azimuth = 180 * cycle;
-        const elevation = 90 * Math.sin(Math.PI * cycle);
-        const aboveHorizon = elevation > 0;
-
-        map.setLight({
-          anchor: 'viewport',
-          color: aboveHorizon ? '#ffffff' : '#aeb8cf',
-          intensity: aboveHorizon ? 0.7 : 0.28,
-          position: [1.1, azimuth, Math.max(18, Math.min(78, elevation + 20))]
-        });
-      } catch (error) {
-        console.warn('Light not supported:', error);
-      }
-    }
-  }
-
-  function add3DBuildings() {
-    if (map.getLayer(BUILDING_LAYER_ID)) {
-      return;
-    }
-
-    if (!map.getSource('openfreemap')) {
-      map.addSource('openfreemap', {
-        type: 'vector',
-        url: 'https://tiles.openfreemap.org/planet'
-      });
-    }
-
-    const layers = map.getStyle().layers || [];
-    const labelLayerId = layers.find((layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field'])?.id;
-
-    const layer = {
-      id: BUILDING_LAYER_ID,
-      source: 'openfreemap',
+    map.addLayer({
+      id: '3d-buildings',
+      source: 'openfreemap-buildings',
       'source-layer': 'building',
       type: 'fill-extrusion',
       minzoom: 15,
       filter: ['!=', ['get', 'hide_3d'], true],
       paint: {
-        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 0],
-        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-        'fill-extrusion-color': [
-          'interpolate',
-          ['linear'],
-          ['coalesce', ['get', 'render_height'], 0],
-          0,
-          '#8c94a7',
-          35,
-          '#a3aab9',
-          120,
-          '#c5a77e',
-          280,
-          '#e8b04b'
+        'fill-extrusion-color': '#c9c2b3',
+        'fill-extrusion-height': [
+          'interpolate', ['linear'], ['zoom'],
+          15, 0,
+          16, ['coalesce', ['get', 'render_height'], 6]
         ],
-        'fill-extrusion-opacity': 0.9,
-        'fill-extrusion-vertical-gradient': true
+        'fill-extrusion-base': [
+          'case',
+          ['>=', ['get', 'zoom'], 16], ['coalesce', ['get', 'render_min_height'], 0],
+          0
+        ],
+        'fill-extrusion-opacity': 0.75
       }
-    };
+    }, labelLayerId);
+  });
+}
 
-    try {
-      if (labelLayerId) {
-        map.addLayer(layer, labelLayerId);
-      } else {
-        map.addLayer(layer);
-      }
-    } catch (error) {
-      console.warn('3D building layer fallback:', error);
-      delete layer.paint['fill-extrusion-vertical-gradient'];
-      if (labelLayerId) {
-        map.addLayer(layer, labelLayerId);
-      } else {
-        map.addLayer(layer);
-      }
+window.addEventListener('trees-ready', () => {
+const trees = window.trees;
+
+const healthLabel = {
+  healthy: "Zdravo", stressed: "Pod stresom", diseased: "Bolesno", dead: "Mrtvo", removed: "Uklonjeno"
+};
+
+let activeMarker = null;
+
+// ---- auth state ----
+function refreshAdminUI(){
+  const isAdmin = window.isAdmin;
+  const app = document.getElementById('app');
+  app.classList.toggle('is-admin', isAdmin);
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) loginBtn.textContent = isAdmin ? '🚪 Odjava' : '🔐 Admin';
+}
+
+refreshAdminUI();
+
+// ---- mobile sidebar drawer ----
+window.toggleSidebar = function(force){
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const shouldOpen = (typeof force === 'boolean') ? force : !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', shouldOpen);
+  backdrop.classList.toggle('open', shouldOpen);
+};
+
+// ---- login modal ----
+window.toggleLogin = function(){
+  if (window.isAdmin) {
+    // logout
+    window.supabase.auth.signOut();
+    window.isAdmin = false;
+    refreshAdminUI();
+    closeDetail();
+    return;
+  }
+  document.getElementById('login-modal').classList.add('open');
+  document.getElementById('login-email').focus();
+};
+window.closeLoginModal = function(){
+  document.getElementById('login-modal').classList.remove('open');
+  document.getElementById('login-error').style.display = 'none';
+};
+window.doLogin = async function(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+
+  if (!email || !password) {
+    errEl.textContent = 'Unesi email i lozinku.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = 'Pogrešan email ili lozinka.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  window.isAdmin = true;
+  document.getElementById('login-password').value = '';
+  closeLoginModal();
+  refreshAdminUI();
+};
+
+// ---- helper: neighbourhood (district) accordion groups ----
+const DISTRICT_ORDER = ['Borik', 'Centar', 'Nova Varoš', 'Rosulje', 'Mejdan', 'Lauš', 'Budžak', 'Starčevica', 'Ada', 'Petrićevac', 'Česma', 'Šeher'];
+
+function cssSafe(s){ return s.replace(/[^a-zA-Z0-9]/g, '-'); }
+
+function getDistrictGroup(name){
+  const groupId = 'district-' + cssSafe(name);
+  let group = document.getElementById(groupId);
+  if (group) return group.querySelector('.district-items');
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'district-group';
+  wrapper.id = groupId;
+  wrapper.dataset.district = name;
+  wrapper.innerHTML = `
+    <div class="district-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <span>${name}</span><span class="chevron">▾</span>
+    </div>
+    <div class="district-items"></div>`;
+
+  const list = document.getElementById('tree-list');
+  const idx = DISTRICT_ORDER.indexOf(name);
+  let inserted = false;
+  for (const child of list.children) {
+    const childIdx = DISTRICT_ORDER.indexOf(child.dataset.district);
+    if (idx !== -1 && (childIdx === -1 || childIdx > idx)) {
+      list.insertBefore(wrapper, child);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) list.appendChild(wrapper);
+  return wrapper.querySelector('.district-items');
+}
+
+// ---- helper: add a sidebar item for a tree ----
+function addSidebarItem(t){
+  const item = document.createElement('div');
+  item.className = 'tree-item';
+  item.id = 'item-' + t.id;
+  item.onclick = () => selectTree(t.id, true);
+  item.innerHTML = `
+    <div class="health-dot health-${t.health}"></div>
+    <div class="info">
+      <b>${t.name} ${t.model ? '<span class="scan-badge">3D</span>' : ''}</b>
+      <span>${t.latin}${t.planted ? ' · zasađeno ' + t.planted + '.' : ''}</span>
+    </div>`;
+  getDistrictGroup(t.district || 'Ostalo').appendChild(item);
+}
+
+// ---- sidebar list ----
+document.getElementById('tree-count').textContent = trees.length;
+
+trees.forEach(t => addSidebarItem(t));
+
+// ---- map markers ----
+// (map + tiles already created above, before this listener, so they're visible
+// immediately — this just adds the tree pins once data has arrived)
+trees.forEach(t => createTreeMarker(t));
+
+function healthColor(h){
+  return { healthy:'#4c7a5d', stressed:'#d8a24a', diseased:'#b0503a', dead:'#8a8a8a', removed:'#8a8a8a' }[h] || '#4c7a5d';
+}
+
+// ---- helper: create a tree marker on the map ----
+function createTreeMarker(t){
+  // IMPORTANT: the element passed to maplibregl.Marker must stay under
+  // MapLibre's own positioning rules (position:absolute, inline transform).
+  // Our .tree-marker CSS class sets position:relative (needed for the
+  // marker-ring child), which would override MapLibre's positioning if
+  // applied to the root marker element — so .tree-marker goes on an inner
+  // wrapper instead, and the outer element stays untouched by our CSS.
+  const wrap = document.createElement('div');
+  const el = document.createElement('div');
+  el.className = 'tree-marker';
+  el.innerHTML = `<div class="marker-ring"></div><svg viewBox="0 0 24 24" fill="none">
+      <path d="M12 21V12.5" stroke="#3a2a18" stroke-width="1.3"/>
+      <circle cx="12" cy="7.5" r="4.6" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+      <circle cx="7.6" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+      <circle cx="16.4" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+    </svg>`;
+  wrap.appendChild(el);
+  wrap.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectTree(t.id, true);
+  });
+  const marker = new maplibregl.Marker({ element: wrap, anchor: 'bottom' })
+    .setLngLat([t.lng, t.lat])
+    .addTo(map);
+  t._marker = marker;
+}
+
+// ---- MAP CLICK: add a new tree (admin only) ----
+let placementMarker = null;
+let placementPopup = null;
+
+function createPlacementElement(){
+  // same reasoning as createTreeMarker: .placement-marker also sets
+  // position:relative in CSS, so it must live on an inner wrapper, not
+  // the root element MapLibre positions.
+  const wrap = document.createElement('div');
+  const el = document.createElement('div');
+  el.className = 'placement-marker';
+  el.innerHTML = '<div class="pm-ring"></div><div class="pm-dot"></div>';
+  wrap.appendChild(el);
+  return wrap;
+}
+
+function removePlacementMarker(){
+  if (placementPopup) { placementPopup.remove(); placementPopup = null; }
+  if (placementMarker) { placementMarker.remove(); placementMarker = null; }
+}
+
+map.on('click', function(e) {
+  if (!window.supabase || !window.isAdmin) return;
+
+  removePlacementMarker();
+
+  placementMarker = new maplibregl.Marker({ element: createPlacementElement(), draggable: true })
+    .setLngLat(e.lngLat)
+    .addTo(map);
+  map.flyTo({ center: [e.lngLat.lng, e.lngLat.lat], zoom: 18.5, duration: 600 });
+
+  const speciesOptions = (window.speciesList || [])
+    .map(s => `<option value="${s.id}">${s.local_name || s.latin_name}</option>`)
+    .join('');
+
+  const districtOptions = (window.districtList || [])
+    .map(d => `<option value="${d.id}" ${d.name === 'Borik' ? 'selected' : ''}>${d.name}</option>`)
+    .join('');
+
+  const formHtml = `
+    <div style="font-family:'Inter',sans-serif;min-width:200px;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Dodaj stablo</div>
+      <div style="font-size:11px;color:#8a7a6a;margin-bottom:10px;">Povuci marker za precizan položaj</div>
+      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Dio grada</label>
+      <select id="popup-district" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
+        ${districtOptions}
+      </select>
+      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Vrsta</label>
+      <select id="popup-species" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;font-size:13px;">
+        ${speciesOptions}
+      </select>
+      <label style="font-size:12px;display:block;margin-bottom:4px;color:#5a625c;">Stanje</label>
+      <select id="popup-health" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;font-size:13px;">
+        <option value="healthy">Zdravo</option>
+        <option value="stressed">Pod stresom</option>
+        <option value="diseased">Bolesno</option>
+      </select>
+      <button onclick="addTreeAt()"
+        style="width:100%;padding:8px;background:#4c7a5d;color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+        Dodaj stablo
+      </button>
+    </div>`;
+
+  placementPopup = new maplibregl.Popup({ className: 'add-tree-popup', offset: [0, -16], closeOnClick: false })
+    .setLngLat(e.lngLat)
+    .setHTML(formHtml)
+    .addTo(map);
+  placementPopup.on('close', () => {
+    // popup can be closed by the user (✕ / Esc) independent of removePlacementMarker,
+    // so guard against double-cleanup by only clearing the marker here.
+    if (placementMarker) { placementMarker.remove(); placementMarker = null; }
+    placementPopup = null;
+  });
+  placementMarker.on('drag', function(){
+    if (placementPopup) placementPopup.setLngLat(placementMarker.getLngLat());
+  });
+});
+
+// ---- add tree to Supabase ----
+// Ensures a contributor row exists for the given auth user before it's used
+// as a foreign key (tree.added_by, tree_scan.scanned_by). Some accounts
+// (e.g. created via Supabase dashboard invite) never get one from the
+// signup trigger. Returns the user id to use as the FK, or null if the
+// contributor row genuinely can't be created (in which case the caller's
+// insert will proceed with a null FK rather than fail).
+async function ensureContributor(user){
+  const { data: existing, error: selectError } = await window.supabase
+    .from('contributor')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error('Contributor lookup failed:', selectError);
+    return null;
+  }
+  if (existing) return user.id;
+
+  const { error: insertError } = await window.supabase.from('contributor').insert({
+    id: user.id,
+    display_name: user.email || 'Admin'
+  });
+
+  if (insertError) {
+    console.error('Contributor auto-create failed:', insertError);
+    alert('Napomena: tvoj admin nalog nema profil (contributor zapis) i nije ga bilo moguće automatski kreirati. Unos će se sačuvati bez vlasnika (added_by/scanned_by = null), što znači da ga kasnije nećeš moći obrisati/urediti preko aplikacije — samo preko Supabase dashboarda.');
+    return null;
+  }
+  return user.id;
+}
+
+window.addTreeAt = async function() {
+  const ll = placementMarker ? placementMarker.getLngLat() : null;
+  if(!ll){ alert('Nema markera za pozicioniranje.'); return; }
+  const lat = ll.lat, lng = ll.lng;
+  const speciesId = parseInt(document.getElementById('popup-species').value);
+  const districtId = parseInt(document.getElementById('popup-district').value);
+  const health = document.getElementById('popup-health').value;
+  const btn = document.querySelector('.add-tree-popup button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Dodajem...'; }
+
+  // Get current user ID so you own the tree
+  const { data: { user } } = await window.supabase.auth.getUser();
+  const addedBy = user ? await ensureContributor(user) : null;
+
+  const { data, error } = await window.supabase.from('tree').insert({
+    location: `SRID=4326;POINT(${lng} ${lat})`,
+    species_id: speciesId,
+    district_id: districtId,
+    health_status: health,
+    added_by: addedBy,
+  }).select();
+
+  if (error) {
+    alert('Greška pri dodavanju: ' + error.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Dodaj stablo'; }
+    return;
+  }
+
+  removePlacementMarker();
+
+  // Build the tree object for the UI
+  const species = (window.speciesList || []).find(s => s.id === speciesId);
+  const name = species?.local_name || species?.latin_name || 'Nepoznata vrsta';
+  const latin = species?.latin_name || '';
+  const treeUuid = data?.[0]?.id;
+  const district = (window.districtList || []).find(d => d.id === districtId);
+
+  const treeObj = {
+    id: treeUuid || 'temp-' + Date.now(),
+    name,
+    latin,
+    district: district?.name || 'Ostalo',
+    lat,
+    lng,
+    height: null,
+    trunk: null,
+    planted: null,
+    health,
+    notes: '',
+    model: null,
+    leafIcon: species?.local_name
+      ? `${window.SUPABASE_URL}/storage/v1/object/public/leaf-icons/leaf-${window.slugifyLocalName(species.local_name)}.webp`
+      : null
+  };
+
+  trees.push(treeObj);
+  createTreeMarker(treeObj);
+  addSidebarItem(treeObj);
+  document.getElementById('tree-count').textContent = trees.length;
+  selectTree(treeObj.id, true);
+};
+
+// ---- EDIT functionality (admin only) ----
+let editingTreeId = null;
+
+function selectTree(id, fly){
+  const t = trees.find(x => x.id === id);
+  if (!t) return;
+
+  editingTreeId = id;
+
+  document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('item-' + id).classList.add('active');
+
+  document.getElementById('d-name').textContent = t.name;
+  document.getElementById('d-latin').textContent = t.latin;
+  document.getElementById('d-height').textContent = t.height ? t.height + ' m' : '—';
+  document.getElementById('d-trunk').textContent = t.trunk ? t.trunk + ' cm' : '—';
+  document.getElementById('d-planted').textContent = t.planted ? t.planted + '.' : '—';
+  document.getElementById('d-health').textContent = healthLabel[t.health];
+  document.getElementById('d-notes').textContent = t.notes || 'Nema dodatnih napomena.';
+
+  const frame = document.getElementById('model-frame');
+  if (t.model) {
+    frame.innerHTML = `<model-viewer src="${t.model}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer><div class="expand-hint">⤢ klikni za veći prikaz</div>`;
+    frame.onclick = () => openModelModal(t.model);
+    frame.style.cursor = 'zoom-in';
+  } else if (t.leafIcon) {
+    frame.innerHTML = `<div class="no-scan-leaf"><img src="${t.leafIcon}" alt="${t.name}" onerror="window.leafIconFallback(this)"><span>Za ovo stablo još nema 3D skena.</span></div>`;
+    frame.onclick = null;
+    frame.style.cursor = 'default';
+  } else {
+    frame.innerHTML = `<div class="no-scan">Za ovo stablo još nema 3D skena.</div>`;
+    frame.onclick = null;
+    frame.style.cursor = 'default';
+  }
+
+  document.getElementById('d-edit-section').style.display = 'none';
+
+  // Only show edit button when logged in as admin
+  let editBtn = document.getElementById('d-edit-btn');
+  if (window.isAdmin) {
+    if (!editBtn) {
+      const body = document.querySelector('#detail .body');
+      editBtn = document.createElement('button');
+      editBtn.id = 'd-edit-btn';
+      editBtn.textContent = '✏️ Uredi podatke';
+      editBtn.style.cssText = 'width:100%;padding:8px;background:transparent;color:var(--moss);border:1px solid var(--moss);border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-top:10px;';
+      editBtn.onclick = enableEdit;
+      body.appendChild(editBtn);
+    }
+    editBtn.style.display = 'block';
+  } else {
+    if (editBtn) editBtn.style.display = 'none';
+  }
+
+  if (activeMarker) {
+    const prevEl = activeMarker.getElement().querySelector('.tree-marker');
+    if (prevEl) prevEl.classList.remove('selected');
+  }
+  if (t._marker) {
+    const wrapEl = t._marker.getElement();
+    const curEl = wrapEl.querySelector('.tree-marker');
+    if (curEl) curEl.classList.add('selected');
+    wrapEl.style.zIndex = 1000;
+  }
+  activeMarker = t._marker;
+
+  document.getElementById('detail').classList.add('open');
+
+  if (window.innerWidth <= 780) window.toggleSidebar(false);
+
+  if (fly) map.flyTo({ center: [t.lng, t.lat], zoom: 17.5, duration: 900 });
+}
+
+function enableEdit(){
+  const t = trees.find(x => x.id === editingTreeId);
+  if (!t) return;
+
+  document.getElementById('e-height').value = t.height || '';
+  document.getElementById('e-trunk').value = t.trunk || '';
+  document.getElementById('e-planted').value = t.planted || '';
+  document.getElementById('e-health').value = t.health;
+  document.getElementById('e-notes').value = t.notes || '';
+
+  document.getElementById('d-edit-section').style.display = 'block';
+  document.getElementById('d-edit-btn').style.display = 'none';
+}
+
+window.saveTreeEdit = async function(){
+  const t = trees.find(x => x.id === editingTreeId);
+  if (!t || !window.supabase) return;
+
+  const height = parseFloat(document.getElementById('e-height').value) || null;
+  const trunk = parseFloat(document.getElementById('e-trunk').value) || null;
+  const planted = parseInt(document.getElementById('e-planted').value) || null;
+  const health = document.getElementById('e-health').value;
+  const notes = document.getElementById('e-notes').value.trim() || null;
+
+  const btn = document.getElementById('d-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Spremam...';
+
+  const { error } = await window.supabase.from('tree').update({
+    height_m: height,
+    trunk_diameter_cm: trunk,
+    planted_year: planted,
+    health_status: health,
+    condition_notes: notes,
+  }).eq('id', editingTreeId);
+
+  if (error) {
+    alert('Greška pri spremanju: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = 'Sačuvaj';
+    return;
+  }
+
+  t.height = height;
+  t.trunk = trunk;
+  t.planted = planted;
+  t.health = health;
+  t.notes = notes;
+
+  const item = document.getElementById('item-' + editingTreeId);
+  if (item) {
+    const dot = item.querySelector('.health-dot');
+    if (dot) dot.className = 'health-dot health-' + health;
+  }
+  if (t._marker) {
+    t._marker.remove();
+    createTreeMarker(t);
+  }
+  selectTree(editingTreeId, false);
+
+  btn.textContent = 'Sačuvaj';
+  btn.disabled = false;
+};
+
+window.uploadScan = async function(file){
+  if (!file || !editingTreeId || !window.supabase) return;
+
+  const btn = document.getElementById('d-scan-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Šaljem...';
+
+  const path = `${editingTreeId}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await window.supabase.storage
+    .from('tree-models')
+    .upload(path, file, { contentType: 'model/gltf-binary' });
+
+  if (uploadError) {
+    alert('Greška pri slanju fajla: ' + uploadError.message);
+    btn.disabled = false;
+    btn.textContent = original;
+    return;
+  }
+
+  const { data: { user } } = await window.supabase.auth.getUser();
+  const scannedBy = user ? await ensureContributor(user) : null;
+
+  const { error: insertError } = await window.supabase.from('tree_scan').insert({
+    tree_id: editingTreeId,
+    model_storage_path: path,
+    method: 'photogrammetry',
+    scanned_by: scannedBy
+  });
+
+  if (insertError) {
+    alert('Greška pri spremanju skena: ' + insertError.message);
+    btn.disabled = false;
+    btn.textContent = original;
+    return;
+  }
+
+  const t = trees.find(x => x.id === editingTreeId);
+  t.model = `${window.SUPABASE_URL}/storage/v1/object/public/tree-models/${path}`;
+
+  selectTree(editingTreeId, false);
+
+  const item = document.getElementById('item-' + editingTreeId);
+  if (item) {
+    const b = item.querySelector('b');
+    if (b && !b.querySelector('.scan-badge')) {
+      b.insertAdjacentHTML('beforeend', ' <span class="scan-badge">3D</span>');
     }
   }
 
-  function set3DMode(enabled, { animate = true } = {}) {
-    buildingLayerEnabled = enabled;
+  btn.disabled = false;
+  btn.textContent = original;
+  document.getElementById('scan-file-input').value = '';
+};
 
-    if (map.getLayer(BUILDING_LAYER_ID)) {
-      map.setLayoutProperty(BUILDING_LAYER_ID, 'visibility', enabled ? 'visible' : 'none');
-    }
+window.deleteTree = async function(){
+  const t = trees.find(x => x.id === editingTreeId);
+  if (!t || !window.supabase) return;
 
-    map.easeTo({
-      pitch: enabled ? CITY.pitch3d : CITY.pitch2d,
-      bearing: enabled ? CITY.bearing : map.getBearing(),
-      duration: animate ? 1200 : 0,
-      essential: true
-    });
+  if (!confirm(`Obrisati "${t.name}"? Ovo se ne može poništiti.`)) return;
 
-    toggle3dLabelEl.textContent = enabled ? '2D pogled' : '3D pogled';
-    toggle3dIconEl.textContent = enabled ? '⬡' : '▢';
+  const btn = document.getElementById('d-delete-btn');
+  btn.disabled = true;
+  btn.textContent = 'Brišem...';
+
+  const { error } = await window.supabase.from('tree').delete().eq('id', editingTreeId);
+
+  if (error) {
+    alert('Greška pri brisanju: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = '🗑 Obriši stablo';
+    return;
   }
 
-  function resetView() {
-    setActiveLandmark('');
-    map.flyTo({
-      center: CITY.center,
-      zoom: CITY.zoom,
-      pitch: buildingLayerEnabled ? CITY.pitch3d : CITY.pitch2d,
-      bearing: buildingLayerEnabled ? CITY.bearing : map.getBearing(),
-      duration: 2200,
-      curve: 1.4,
-      essential: true
-    });
+  // remove marker from map
+  if (t._marker) t._marker.remove();
+
+  // remove sidebar item
+  const item = document.getElementById('item-' + editingTreeId);
+  if (item) item.remove();
+
+  // remove from local trees array
+  const idx = trees.findIndex(x => x.id === editingTreeId);
+  if (idx !== -1) trees.splice(idx, 1);
+
+  document.getElementById('tree-count').textContent = trees.length;
+
+  closeDetail();
+};
+
+window.cancelEdit = function(){
+  document.getElementById('d-edit-section').style.display = 'none';
+  document.getElementById('d-edit-btn').style.display = 'block';
+};
+
+function closeDetail(){
+  if (activeMarker) {
+    const el = activeMarker.getElement().querySelector('.tree-marker');
+    if (el) el.classList.remove('selected');
   }
+  activeMarker = null;
+  document.getElementById('detail').classList.remove('open');
+  document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('d-edit-section').style.display = 'none';
+  const editBtn = document.getElementById('d-edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
+  editingTreeId = null;
+}
 
-  async function geocode(query) {
-    const viewbox = CITY.searchViewbox;
-    const url = new URL('https://nominatim.openstreetmap.org/search');
-    url.searchParams.set('format', 'jsonv2');
-    url.searchParams.set('limit', '5');
-    url.searchParams.set('bounded', '1');
-    url.searchParams.set('viewbox', viewbox.join(','));
-    url.searchParams.set('accept-language', 'sr-Latn');
-    url.searchParams.set('addressdetails', '0');
-    url.searchParams.set('q', query);
+window.selectTree = selectTree;
+window.closeDetail = closeDetail;
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+// ---- model lightbox ----
+window.openModelModal = function(src){
+  if (!src) return;
+  document.getElementById('modal-model-frame').innerHTML =
+    `<model-viewer src="${src}" camera-controls auto-rotate shadow-intensity="1" style="width:100%;height:100%;"></model-viewer>`;
+  document.getElementById('model-modal').classList.add('open');
+};
+window.closeModelModal = function(){
+  document.getElementById('model-modal').classList.remove('open');
+  document.getElementById('modal-model-frame').innerHTML = '';
+};
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModelModal();
+});
 
-    if (!response.ok) {
-      throw new Error(`Geocoding request failed (${response.status})`);
-    }
-
-    const results = await response.json();
-    return (results || []).map((item) => ({
-      place_name: item.display_name,
-      center: [parseFloat(item.lon), parseFloat(item.lat)]
-    }));
-  }
-
-  function renderSearchResults(results) {
-    searchResultsEl.innerHTML = '';
-
-    results.forEach((result) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'search-result';
-      button.textContent = result.place_name;
-      button.addEventListener('click', () => {
-        clearSearchResults();
-        setSearchStatus('');
-        map.flyTo({
-          center: result.center,
-          zoom: Math.max(map.getZoom(), 16),
-          pitch: buildingLayerEnabled ? CITY.pitch3d : CITY.pitch2d,
-          bearing: buildingLayerEnabled ? CITY.bearing : map.getBearing(),
-          duration: 2600,
-          curve: 1.4,
-          essential: true
-        });
-      });
-      searchResultsEl.appendChild(button);
-    });
-
-    searchResultsEl.hidden = false;
-  }
-
-  async function runSearch() {
-    const query = searchInputEl.value.trim();
-    clearSearchResults();
-
-    if (!query) {
-      setSearchStatus('Unesite ulicu ili mjesto prvo.', 'error');
-      return;
-    }
-
-    setSearchStatus('Pretraga je u toku...');
-
-    try {
-      const results = await geocode(query);
-
-      if (!results.length) {
-        setSearchStatus('Nema rezultata. Probajte drugi pojam.', 'error');
-        return;
-      }
-
-      setSearchStatus('');
-      renderSearchResults(results);
-    } catch (error) {
-      console.error(error);
-      setSearchStatus('Pretraga nije uspjela. Provjerite vezu i pokušajte ponovo.', 'error');
-    }
-  }
-
-  function attachEventHandlers() {
-    document.querySelectorAll('#app input[type="checkbox"]').forEach((input) => {
-      input.addEventListener('change', () => {
-        applyInventoryFilter();
-      });
-    });
-
-    searchButtonEl.addEventListener('click', runSearch);
-    searchInputEl.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        runSearch();
-      }
-      if (event.key === 'Escape') {
-        clearSearchResults();
-        setSearchStatus('');
-      }
-    });
-
-    document.addEventListener('click', (event) => {
-      if (!event.target.closest('.search-box')) {
-        clearSearchResults();
-      }
-    });
-
-    resetButtonEl.addEventListener('click', () => {
-      document.querySelectorAll('#app input[type="checkbox"]').forEach((input) => {
-        input.checked = true;
-      });
-      clearSearchResults();
-      setSearchStatus('');
-      applyInventoryFilter();
-      resetView();
-    });
-
-    toggle3dButtonEl.addEventListener('click', () => {
-      set3DMode(!buildingLayerEnabled, { animate: true });
-    });
-
-    locateButtonEl.addEventListener('click', () => {
-      if (!('geolocation' in navigator)) {
-        setSearchStatus('Geolokacija nije podržana u ovom pregledaču.', 'error');
-        return;
-      }
-
-      setSearchStatus('Tražim vašu lokaciju...');
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const center = [position.coords.longitude, position.coords.latitude];
-          map.flyTo({
-            center,
-            zoom: 16,
-            pitch: buildingLayerEnabled ? CITY.pitch3d : CITY.pitch2d,
-            bearing: buildingLayerEnabled ? CITY.bearing : map.getBearing(),
-            duration: 2600,
-            curve: 1.4,
-            essential: true
-          });
-          setSearchStatus('Pronađena lokacija. Mapa je pomjerena na vas.', 'success');
-        },
-        (error) => {
-          const message = error && error.code === 1
-            ? 'Pristup lokaciji je odbijen u podešavanjima pregledača.'
-            : 'Lokacija nije mogla da se odredi. Pokušajte ponovo.';
-          setSearchStatus(message, 'error');
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000
-        }
-      );
-    });
-
-    modeBadgeCloseEl.addEventListener('click', () => {
-      modeBadgeEl.remove();
-    });
-
-    /* Sidebar toggle */
-    const sidebarEl = document.querySelector('.sidebar');
-    const sidebarToggleEl = document.getElementById('sidebar-toggle');
-    const sidebarShowEl = document.getElementById('sidebar-show');
-    const toggleIcon = sidebarToggleEl.querySelector('.sidebar-toggle__icon');
-
-    sidebarToggleEl.addEventListener('click', () => {
-      sidebarEl.classList.add('collapsed');
-      toggleIcon.textContent = '▶';
-      sidebarToggleEl.setAttribute('aria-label', 'Prikaži panel');
-      sidebarShowEl.style.display = '';
-    });
-
-    sidebarShowEl.addEventListener('click', () => {
-      sidebarEl.classList.remove('collapsed');
-      toggleIcon.textContent = '◀';
-      sidebarToggleEl.setAttribute('aria-label', 'Sakrij panel');
-      sidebarShowEl.style.display = 'none';
-    });
-
-    /* Mobile: compact control panel that expands on tap */
-    const controlPanelEl = document.querySelector('.control-panel');
-    const controlPanelToggleEl = document.getElementById('control-panel-toggle');
-    const sidebarDragHandleEl = document.getElementById('sidebar-drag-handle');
-    const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
-
-    function setupMobileLayout() {
-      if (isMobile()) {
-        controlPanelToggleEl.style.display = '';
-        sidebarDragHandleEl.style.display = '';
-        controlPanelEl.classList.remove('expanded');
-        sidebarEl.classList.remove('expanded');
-      } else {
-        controlPanelToggleEl.style.display = 'none';
-        sidebarDragHandleEl.style.display = 'none';
-        controlPanelEl.classList.remove('expanded');
-        sidebarEl.classList.remove('expanded');
-      }
-    }
-
-    controlPanelToggleEl.addEventListener('click', () => {
-      controlPanelEl.classList.toggle('expanded');
-    });
-
-    sidebarDragHandleEl.addEventListener('click', () => {
-      sidebarEl.classList.toggle('expanded');
-    });
-
-    setupMobileLayout();
-    window.addEventListener('resize', setupMobileLayout);
-  }
-
-  async function bootstrap() {
-    setSyncStatus('Učitavam podatke...');
-    currentCollection = await loadCollection();
-    await syncInventorySource();
-    updateCounters();
-    applyInventoryFilter();
-    setSyncStatus(`Učitano: ${currentCollection.features.length} stavki.`);
-  }
-
-  function showStartupOverlay(message) {
-    startupOverlayEl.hidden = false;
-    if (message) {
-      startupOverlayEl.querySelector('p').textContent = message;
-    }
-  }
-
-  function hideStartupOverlay() {
-    startupOverlayEl.hidden = true;
-  }
-
-  try {
-    map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://tiles.openfreemap.org/styles/bright',
-      center: CITY.center,
-      zoom: CITY.zoom,
-      pitch: CITY.pitch3d,
-      bearing: CITY.bearing,
-      maxPitch: 85,
-      antialias: true
-    });
-  } catch (error) {
-    console.error(error);
-    showStartupOverlay('Vaš pregledač nije mogao da pokrene WebGL, što je potrebno za 3D mapu.');
-  }
-
-  if (map) {
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
-    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
-
-    map.on('error', (event) => {
-      const error = event && event.error;
-      console.error('Map error:', error);
-    });
-
-    map.on('load', async () => {
-      try {
-        hideStartupOverlay();
-        configureAtmosphere();
-        add3DBuildings();
-        renderLandmarks();
-        set3DMode(true, { animate: false });
-        attachEventHandlers();
-        await bootstrap();
-        /* Safety net: if inventory source still wasn't added, try again on idle */
-        map.on('idle', () => {
-          if (currentCollection.features.length > 0 && !map.getSource('inventory-points')) {
-            syncInventorySource();
-          }
-        });
-      } catch (error) {
-        console.error(error);
-        showStartupOverlay('Mapa je naišla na grešku pri učitavanju. Provjerite mrežu ili ponovo otvorite stranicu.');
-        setSyncStatus('Mapa nije mogla da se inicijalizuje.');
-      }
-    });
-  }
-
-  updateCounters();
-  setSyncStatus('Pripremam 3D prikaz...');
-  document.getElementById('landmark-count').textContent = String(landmarks.length);
+}); // end trees-ready listener
 </script>
 </body>
 </html>
