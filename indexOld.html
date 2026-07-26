@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Drveće Banjaluke — Bulevar Živojina Mišića</title>
 
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
-<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -226,8 +226,9 @@
     z-index:5;
   }
   #detail.open{ transform:translateX(0); }
-  /* ensure map canvas stays behind the detail panel */
-  #map .maplibregl-canvas-container { z-index: 0; }
+  /* quick fix: ensure map tiles stay behind the detail panel */
+  #map .leaflet-pane,
+  #map .leaflet-tile-pane { z-index: 0; }
   #detail { z-index: 10; }
 
 
@@ -304,12 +305,12 @@
   }
 
   /* map popup styling */
-  .maplibregl-popup-content{
+  .leaflet-popup-content-wrapper{
     border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,0.2);
-    padding:14px 16px;
   }
-  .maplibregl-popup-tip{ box-shadow:none; }
+  .leaflet-popup-content{ margin:14px 16px; }
+  .leaflet-popup-tip{ box-shadow:none; }
 
   .admin-only{ display:none; }
   .is-admin .admin-only{ display:block; }
@@ -696,63 +697,18 @@ window.dispatchEvent(new Event('trees-ready'));
 // loads over the network — same map, same tiles, same behavior, just no
 // longer blocked on the Supabase fetches.
 let map;
-if (typeof maplibregl === 'undefined') {
+if (typeof L === 'undefined') {
   document.getElementById('map').innerHTML =
     '<div style="padding:24px;font-family:sans-serif;color:#6b4a34;">' +
     'Karta se nije učitala jer je blokiran pristup CDN-u. ' +
     'Provjeri internet konekciju ili isključi ad-blocker za ovu stranicu.</div>';
-  throw new Error('MapLibre GL JS failed to load from CDN — check network/ad-blocker.');
+  throw new Error('Leaflet failed to load from CDN — check network/ad-blocker.');
 } else {
-  map = new maplibregl.Map({
-    container: 'map',
-    style: 'https://tiles.openfreemap.org/styles/bright',
-    center: [17.1938, 44.7730],
-    zoom: 15.5,
-    pitch: 45,
-    bearing: -17.6,
-    canvasContextAttributes: { antialias: true }
-  });
-  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
-
-  // 3D buildings — OpenFreeMap's "bright" style doesn't ship extrusion by
-  // default, so add it from the same vector source. render_height /
-  // render_min_height come from OSM building data (per OpenFreeMap / MapLibre docs).
-  map.on('load', () => {
-    const layers = map.getStyle().layers;
-    let labelLayerId;
-    for (const layer of layers) {
-      if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
-        labelLayerId = layer.id;
-        break;
-      }
-    }
-    map.addSource('openfreemap-buildings', {
-      type: 'vector',
-      url: 'https://tiles.openfreemap.org/planet'
-    });
-    map.addLayer({
-      id: '3d-buildings',
-      source: 'openfreemap-buildings',
-      'source-layer': 'building',
-      type: 'fill-extrusion',
-      minzoom: 15,
-      filter: ['!=', ['get', 'hide_3d'], true],
-      paint: {
-        'fill-extrusion-color': '#c9c2b3',
-        'fill-extrusion-height': [
-          'interpolate', ['linear'], ['zoom'],
-          15, 0,
-          16, ['coalesce', ['get', 'render_height'], 6]
-        ],
-        'fill-extrusion-base': [
-          'case',
-          ['>=', ['get', 'zoom'], 16], ['coalesce', ['get', 'render_min_height'], 0],
-          0
-        ],
-        'fill-extrusion-opacity': 0.75
-      }
-    }, labelLayerId);
-  });
+  map = L.map('map', { zoomControl: true }).setView([44.7730, 17.1938], 15.5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
 }
 
 window.addEventListener('trees-ready', () => {
@@ -891,62 +847,45 @@ function healthColor(h){
 
 // ---- helper: create a tree marker on the map ----
 function createTreeMarker(t){
-  // IMPORTANT: the element passed to maplibregl.Marker must stay under
-  // MapLibre's own positioning rules (position:absolute, inline transform).
-  // Our .tree-marker CSS class sets position:relative (needed for the
-  // marker-ring child), which would override MapLibre's positioning if
-  // applied to the root marker element — so .tree-marker goes on an inner
-  // wrapper instead, and the outer element stays untouched by our CSS.
-  const wrap = document.createElement('div');
-  const el = document.createElement('div');
-  el.className = 'tree-marker';
-  el.innerHTML = `<div class="marker-ring"></div><svg viewBox="0 0 24 24" fill="none">
-      <path d="M12 21V12.5" stroke="#3a2a18" stroke-width="1.3"/>
-      <circle cx="12" cy="7.5" r="4.6" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
-      <circle cx="7.6" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
-      <circle cx="16.4" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
-    </svg>`;
-  wrap.appendChild(el);
-  wrap.addEventListener('click', (e) => {
-    e.stopPropagation();
-    selectTree(t.id, true);
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="tree-marker"><div class="marker-ring"></div><svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 21V12.5" stroke="#3a2a18" stroke-width="1.3"/>
+        <circle cx="12" cy="7.5" r="4.6" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+        <circle cx="7.6" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+        <circle cx="16.4" cy="10.2" r="3" fill="${healthColor(t.health)}" stroke="#1f3a2e" stroke-width="0.6"/>
+      </svg></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 20]
   });
-  const marker = new maplibregl.Marker({ element: wrap, anchor: 'bottom' })
-    .setLngLat([t.lng, t.lat])
-    .addTo(map);
+  const marker = L.marker([t.lat, t.lng], { icon }).addTo(map);
+  marker.on('click', () => selectTree(t.id, true));
   t._marker = marker;
 }
 
 // ---- MAP CLICK: add a new tree (admin only) ----
 let placementMarker = null;
-let placementPopup = null;
-
-function createPlacementElement(){
-  // same reasoning as createTreeMarker: .placement-marker also sets
-  // position:relative in CSS, so it must live on an inner wrapper, not
-  // the root element MapLibre positions.
-  const wrap = document.createElement('div');
-  const el = document.createElement('div');
-  el.className = 'placement-marker';
-  el.innerHTML = '<div class="pm-ring"></div><div class="pm-dot"></div>';
-  wrap.appendChild(el);
-  return wrap;
-}
+const placementIcon = L.divIcon({
+  className: '',
+  html: '<div class="placement-marker"><div class="pm-ring"></div><div class="pm-dot"></div></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14]
+});
 
 function removePlacementMarker(){
-  if (placementPopup) { placementPopup.remove(); placementPopup = null; }
-  if (placementMarker) { placementMarker.remove(); placementMarker = null; }
+  if(placementMarker){ map.removeLayer(placementMarker); placementMarker = null; }
 }
+map.on('popupclose', function(e){
+  if(e.popup === (placementMarker && placementMarker._placementPopup)) removePlacementMarker();
+});
 
 map.on('click', function(e) {
   if (!window.supabase || !window.isAdmin) return;
 
   removePlacementMarker();
 
-  placementMarker = new maplibregl.Marker({ element: createPlacementElement(), draggable: true })
-    .setLngLat(e.lngLat)
-    .addTo(map);
-  map.flyTo({ center: [e.lngLat.lng, e.lngLat.lat], zoom: 18.5, duration: 600 });
+  placementMarker = L.marker(e.latlng, { draggable: true, icon: placementIcon, zIndexOffset: 2000 }).addTo(map);
+  map.flyTo(e.latlng, 18.5, { duration: 0.6 });
 
   const speciesOptions = (window.speciesList || [])
     .map(s => `<option value="${s.id}">${s.local_name || s.latin_name}</option>`)
@@ -980,18 +919,13 @@ map.on('click', function(e) {
       </button>
     </div>`;
 
-  placementPopup = new maplibregl.Popup({ className: 'add-tree-popup', offset: [0, -16], closeOnClick: false })
-    .setLngLat(e.lngLat)
-    .setHTML(formHtml)
-    .addTo(map);
-  placementPopup.on('close', () => {
-    // popup can be closed by the user (✕ / Esc) independent of removePlacementMarker,
-    // so guard against double-cleanup by only clearing the marker here.
-    if (placementMarker) { placementMarker.remove(); placementMarker = null; }
-    placementPopup = null;
-  });
+  const placementPopup = L.popup({ className: 'add-tree-popup', offset: [0, -16], autoPan: false })
+    .setLatLng(e.latlng)
+    .setContent(formHtml)
+    .openOn(map);
+  placementMarker._placementPopup = placementPopup;
   placementMarker.on('drag', function(){
-    if (placementPopup) placementPopup.setLngLat(placementMarker.getLngLat());
+    placementPopup.setLatLng(placementMarker.getLatLng());
   });
 });
 
@@ -1029,7 +963,7 @@ async function ensureContributor(user){
 }
 
 window.addTreeAt = async function() {
-  const ll = placementMarker ? placementMarker.getLngLat() : null;
+  const ll = placementMarker ? placementMarker.getLatLng() : null;
   if(!ll){ alert('Nema markera za pozicioniranje.'); return; }
   const lat = ll.lat, lng = ll.lng;
   const speciesId = parseInt(document.getElementById('popup-species').value);
@@ -1056,6 +990,7 @@ window.addTreeAt = async function() {
     return;
   }
 
+  map.closePopup();
   removePlacementMarker();
 
   // Build the tree object for the UI
@@ -1144,15 +1079,14 @@ function selectTree(id, fly){
     if (editBtn) editBtn.style.display = 'none';
   }
 
-  if (activeMarker) {
-    const prevEl = activeMarker.getElement().querySelector('.tree-marker');
+  if (activeMarker && activeMarker._icon) {
+    const prevEl = activeMarker._icon.querySelector('.tree-marker');
     if (prevEl) prevEl.classList.remove('selected');
   }
-  if (t._marker) {
-    const wrapEl = t._marker.getElement();
-    const curEl = wrapEl.querySelector('.tree-marker');
+  if (t._marker && t._marker._icon) {
+    const curEl = t._marker._icon.querySelector('.tree-marker');
     if (curEl) curEl.classList.add('selected');
-    wrapEl.style.zIndex = 1000;
+    t._marker.setZIndexOffset(1000);
   }
   activeMarker = t._marker;
 
@@ -1160,7 +1094,7 @@ function selectTree(id, fly){
 
   if (window.innerWidth <= 780) window.toggleSidebar(false);
 
-  if (fly) map.flyTo({ center: [t.lng, t.lat], zoom: 17.5, duration: 900 });
+  if (fly) map.flyTo([t.lat, t.lng], 17.5, { duration: 0.9 });
 }
 
 function enableEdit(){
@@ -1218,7 +1152,7 @@ window.saveTreeEdit = async function(){
     if (dot) dot.className = 'health-dot health-' + health;
   }
   if (t._marker) {
-    t._marker.remove();
+    map.removeLayer(t._marker);
     createTreeMarker(t);
   }
   selectTree(editingTreeId, false);
@@ -1303,7 +1237,7 @@ window.deleteTree = async function(){
   }
 
   // remove marker from map
-  if (t._marker) t._marker.remove();
+  if (t._marker) map.removeLayer(t._marker);
 
   // remove sidebar item
   const item = document.getElementById('item-' + editingTreeId);
@@ -1324,8 +1258,8 @@ window.cancelEdit = function(){
 };
 
 function closeDetail(){
-  if (activeMarker) {
-    const el = activeMarker.getElement().querySelector('.tree-marker');
+  if (activeMarker && activeMarker._icon) {
+    const el = activeMarker._icon.querySelector('.tree-marker');
     if (el) el.classList.remove('selected');
   }
   activeMarker = null;
