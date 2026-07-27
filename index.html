@@ -451,9 +451,17 @@
     }
 
     #hamburger-btn{ display:flex; }
-    header h1{ font-size:15px; }
+    header{ padding:0 10px; gap:8px; }
+    header .brand{ min-width:0; flex:1 1 auto; overflow:hidden; }
+    header h1{
+      font-size:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
     header .sub{ display:none; }
-    header .count{ font-size:11px; padding:5px 9px; }
+    header .count{ font-size:11px; padding:5px 9px; white-space:nowrap; }
+    header > div:last-of-type{ flex-shrink:0; gap:6px; }
 
     #sidebar{
       position:fixed;
@@ -485,6 +493,19 @@
 
     .add-btn{ margin:14px 16px; }
   }
+
+  /* ===================== SMALLEST SCREENS ===================== */
+  @media (max-width: 400px){
+    header{ padding:0 8px; }
+    #hamburger-btn{ width:32px; height:32px; margin-right:6px; }
+    header .brand{ gap:6px; }
+    header .brand svg{ width:22px; height:22px; }
+    header h1{ font-size:12.5px; }
+    header .count .count-label{ display:none; }
+    header .count{ padding:5px 7px; }
+    #login-btn{ padding:5px 8px; font-size:11px; }
+    #login-btn .login-label{ display:none; }
+  }
 </style>
 </head>
 <body>
@@ -508,8 +529,8 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <div class="count"><b id="tree-count">0</b> stabala popisano</div>
-      <button id="login-btn" onclick="toggleLogin()">🔐 Admin</button>
+      <div class="count"><b id="tree-count">0</b> <span class="count-label">stabala popisano</span></div>
+      <button id="login-btn" onclick="toggleLogin()">🔐 <span class="login-label">Admin</span></button>
     </div>
   </header>
 
@@ -783,7 +804,9 @@ function refreshAdminUI(){
   const app = document.getElementById('app');
   app.classList.toggle('is-admin', isAdmin);
   const loginBtn = document.getElementById('login-btn');
-  if (loginBtn) loginBtn.textContent = isAdmin ? '🚪 Odjava' : '🔐 Admin';
+  if (loginBtn) loginBtn.innerHTML = isAdmin
+    ? '🚪 <span class="login-label">Odjava</span>'
+    : '🔐 <span class="login-label">Admin</span>';
 }
 
 refreshAdminUI();
