@@ -178,8 +178,6 @@
     70%  { transform:scale(1.15); opacity:0; }
     100% { transform:scale(1.15); opacity:0; }
   }
-  .tree-marker.draggable{ cursor:grab; }
-  .tree-marker.draggable:active{ cursor:grabbing; }
 
   .placement-marker{
     width:28px; height:28px;
@@ -538,7 +536,6 @@
 
         <!-- Edit section (hidden until "Uredi" is clicked) -->
         <div id="d-edit-section" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
-          <p style="font-size:11px;color:#5a625c;margin:0 0 12px;">📍 Stablo možeš pomjeriti prevlačenjem markera na mapi ako lokacija nije precizna.</p>
           <input type="file" id="scan-file-input" accept=".glb" style="display:none" onchange="uploadScan(this.files[0])">
           <button id="d-scan-btn" onclick="document.getElementById('scan-file-input').click()" style="width:100%;padding:10px;margin-bottom:14px;background:var(--river);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">📦 Dodaj 3D sken</button>
           <div class="stat-grid" style="grid-template-columns:1fr;">
@@ -716,12 +713,6 @@ if (typeof maplibregl === 'undefined') {
     canvasContextAttributes: { antialias: true }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
-  map.addControl(new maplibregl.GeolocateControl({
-    positionOptions: { enableHighAccuracy: true },
-    trackUserLocation: true,
-    showUserHeading: true,
-    showAccuracyCircle: true
-  }));
 
   // 3D buildings — OpenFreeMap's "bright" style doesn't ship extrusion by
   // default, so add it from the same vector source. render_height /
@@ -923,14 +914,6 @@ function createTreeMarker(t){
   const marker = new maplibregl.Marker({ element: wrap, anchor: 'bottom' })
     .setLngLat([t.lng, t.lat])
     .addTo(map);
-  // Only fires once setDraggable(true) is called during edit mode for this
-  // tree (see enableEdit) — markers are non-draggable by default, so this
-  // has no effect in normal browsing.
-  marker.on('dragend', () => {
-    const ll = marker.getLngLat();
-    t.lat = ll.lat;
-    t.lng = ll.lng;
-  });
   t._marker = marker;
 }
 
@@ -1190,15 +1173,6 @@ function enableEdit(){
   document.getElementById('e-health').value = t.health;
   document.getElementById('e-notes').value = t.notes || '';
 
-  // let admin drag the marker to correct an imprecise placement while editing
-  t._origLat = t.lat;
-  t._origLng = t.lng;
-  if (t._marker) {
-    t._marker.setDraggable(true);
-    const markerEl = t._marker.getElement().querySelector('.tree-marker');
-    if (markerEl) markerEl.classList.add('draggable');
-  }
-
   document.getElementById('d-edit-section').style.display = 'block';
   document.getElementById('d-edit-btn').style.display = 'none';
 }
@@ -1223,7 +1197,6 @@ window.saveTreeEdit = async function(){
     planted_year: planted,
     health_status: health,
     condition_notes: notes,
-    location: `SRID=4326;POINT(${t.lng} ${t.lat})`,
   }).eq('id', editingTreeId);
 
   if (error) {
@@ -1238,8 +1211,6 @@ window.saveTreeEdit = async function(){
   t.planted = planted;
   t.health = health;
   t.notes = notes;
-  delete t._origLat;
-  delete t._origLng;
 
   const item = document.getElementById('item-' + editingTreeId);
   if (item) {
@@ -1348,21 +1319,6 @@ window.deleteTree = async function(){
 };
 
 window.cancelEdit = function(){
-  const t = trees.find(x => x.id === editingTreeId);
-  if (t) {
-    if (typeof t._origLat === 'number' && typeof t._origLng === 'number') {
-      t.lat = t._origLat;
-      t.lng = t._origLng;
-      if (t._marker) t._marker.setLngLat([t.lng, t.lat]);
-    }
-    delete t._origLat;
-    delete t._origLng;
-    if (t._marker) {
-      t._marker.setDraggable(false);
-      const markerEl = t._marker.getElement().querySelector('.tree-marker');
-      if (markerEl) markerEl.classList.remove('draggable');
-    }
-  }
   document.getElementById('d-edit-section').style.display = 'none';
   document.getElementById('d-edit-btn').style.display = 'block';
 };
