@@ -526,18 +526,21 @@
     position:absolute;
     top:150px; right:10px;
     z-index:5;
-    padding:8px 14px;
+    padding:8px 10px;
     background:var(--moss);
     color:white;
     border:none;
-    border-radius:6px;
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-    font-size:13px;
+    border-radius:8px;
     cursor:pointer;
     box-shadow:0 2px 8px rgba(0,0,0,0.2);
     transition:background 0.15s;
+    display:flex;
+    align-items:center;
+    gap:3px;
+    line-height:1;
   }
+  .place-mode-btn .tree-icon{ width:22px; height:22px; }
+  .place-mode-btn .plus-sign{ font-size:17px; font-weight:700; }
   .place-mode-btn:hover{ background:#3f6a4f; }
   .place-mode-btn.active{ background:#e07a2f; }
   .place-mode-btn.active:hover{ background:#c96a20; }
@@ -667,10 +670,12 @@
 
   <div style="position:relative;">
     <button id="place-mode-btn" class="admin-only place-mode-btn" onclick="togglePlaceMode()">
-      <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 20V12"/>
-        <path d="M5 13L12 5L19 13"/>
-        <path d="M8 10L12 6L16 10"/>
+      <svg class="tree-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M12 21V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+        <circle cx="12" cy="7.2" r="4.6" fill="currentColor"/>
+        <circle cx="7.4" cy="10" r="3.1" fill="currentColor"/>
+        <circle cx="16.6" cy="10" r="3.1" fill="currentColor"/>
       </svg>
       <span class="plus-sign">+</span>
     </button>
@@ -1172,7 +1177,9 @@ window.togglePlaceMode = function(){
   const btn = document.getElementById('place-mode-btn');
   if (btn) {
     btn.classList.toggle('active', placeMode);
-    btn.textContent = placeMode ? '✕ Otkaži' : '📍 Dodaj stablo';
+    btn.innerHTML = placeMode
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      : '<svg class="tree-icon" viewBox="0 0 24 24" fill="none"><path d="M12 21V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="12" cy="7.2" r="4.6" fill="currentColor"/><circle cx="7.4" cy="10" r="3.1" fill="currentColor"/><circle cx="16.6" cy="10" r="3.1" fill="currentColor"/></svg><span class="plus-sign">+</span>';
   }
   if (!placeMode) removePlacementMarker();
 };
@@ -1349,7 +1356,7 @@ window.addTreeAt = async function() {
   } catch(err) {
     alert('Neočekivana greška: ' + err.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Dodaj stablo'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="tree-icon" viewBox="0 0 24 24" fill="none"><path d="M12 21V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="12" cy="7.2" r="4.6" fill="currentColor"/><circle cx="7.4" cy="10" r="3.1" fill="currentColor"/><circle cx="16.6" cy="10" r="3.1" fill="currentColor"/></svg><span class="plus-sign">+</span>'; }
   }
 };
 
