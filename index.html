@@ -29,23 +29,6 @@
     --line:          rgba(28,36,32,0.12);
   }
 
-  @font-face{
-    font-family:'Sreda';
-    src: url('./fonts/Sreda.woff2') format('woff2'),
-         url('./fonts/Sreda.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-  }
-  @font-face{
-    font-family:'Soria';
-    src: url('./fonts/Soria.woff2') format('woff2'),
-         url('./fonts/Soria.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-  }
-
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
   body{
@@ -87,20 +70,20 @@
   }
   header .brand svg{ flex-shrink:0; }
   header h1{
-    font-size:19px;
+    font-size:18px;
     margin:0;
-    font-family:'Sreda', 'Inter', sans-serif;
+    font-family:'Inter', sans-serif;
     font-weight:700;
-    letter-spacing:0;
+    letter-spacing:-0.03em;
     color:var(--paper-hi);
     line-height:1.1;
   }
   header .sub{
     font-size:12px;
     opacity:0.78;
-    font-family:'Soria', 'Inter', sans-serif;
+    font-family:'Inter', sans-serif;
     font-weight:500;
-    letter-spacing:0.01em;
+    letter-spacing:0;
   }
   header .count{
     font-family:'IBM Plex Mono', monospace;
@@ -718,7 +701,7 @@
       </svg>
       <div>
         <h1>Urban Monitor</h1>
-        <div class="sub">Katalog drveća Banjaluke</div>
+        <div class="sub">Drveće Banjaluke | katalog</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
@@ -1067,48 +1050,6 @@ const healthLabel = {
 let activeMarker = null;
 let prevActiveItem = null;
 
-// ---- viewport virtualization for tree markers ----
-// With a large tree table, creating a DOM marker for every single tree up
-// front (and keeping them all alive during every pan/zoom) is what causes
-// the map to slow down as the dataset grows. Instead we only keep markers
-// on the map for trees inside the current viewport (plus a small buffer),
-// and create/remove them as the user pans. Nothing about how a marker
-// itself behaves (drag, click, selection ring, popups) changes — this only
-// changes *when* a given tree's marker exists.
-const VIEWPORT_BUFFER_DEG = 0.03; // ~3km buffer so pins don't pop in/out right at the screen edge
-
-function isTreeInBounds(t, bounds){
-  return t.lat >= bounds.getSouth() - VIEWPORT_BUFFER_DEG &&
-         t.lat <= bounds.getNorth() + VIEWPORT_BUFFER_DEG &&
-         t.lng >= bounds.getWest()  - VIEWPORT_BUFFER_DEG &&
-         t.lng <= bounds.getEast()  + VIEWPORT_BUFFER_DEG;
-}
-
-function updateVisibleMarkers(){
-  const bounds = map.getBounds();
-  trees.forEach(t => {
-    // never cull the tree that's currently selected/open in the detail
-    // panel (or mid-edit-drag) even if the user pans it off screen
-    const keep = t.id === editingTreeId;
-    const shouldShow = keep || isTreeInBounds(t, bounds);
-
-    if (shouldShow && !t._marker) {
-      createTreeMarker(t);
-    } else if (!shouldShow && t._marker) {
-      t._marker.remove();
-      t._marker = null;
-    }
-  });
-}
-
-function debounce(fn, wait){
-  let timer = null;
-  return function(...args){
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), wait);
-  };
-}
-
 // ---- server-side session check (on first admin action only) ----
 async function verifyAdminSession(){
   if (!window.isAdmin || !window.supabase) return true;
@@ -1285,10 +1226,7 @@ window.filterSidebar = function(query) {
 // ---- map markers ----
 // (map + tiles already created above, before this listener, so they're visible
 // immediately — this just adds the tree pins once data has arrived)
-// Only trees currently within the viewport get a marker; the set is kept in
-// sync as the user pans/zooms (see updateVisibleMarkers above).
-updateVisibleMarkers();
-map.on('moveend', debounce(updateVisibleMarkers, 150));
+trees.forEach(t => createTreeMarker(t));
 
 function healthColor(h){
   return { healthy:'#4c7a5d', stressed:'#d8a24a', diseased:'#b0503a', dead:'#8a8a8a', removed:'#8a8a8a' }[h] || '#4c7a5d';
@@ -1607,10 +1545,6 @@ function selectTree(id, fly){
     const prevEl = activeMarker.getElement().querySelector('.tree-marker');
     if (prevEl) prevEl.classList.remove('selected');
   }
-  // selectTree can be triggered from the sidebar list for a tree that's
-  // currently off-screen (and so has no marker yet under virtualization) —
-  // create it on demand so the selection ring / drag-to-edit still work.
-  if (!t._marker) createTreeMarker(t);
   if (t._marker) {
     const wrapEl = t._marker.getElement();
     const curEl = wrapEl.querySelector('.tree-marker');
