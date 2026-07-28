@@ -220,7 +220,7 @@
   #detail{
     position:absolute;
     top:84px; right:20px;
-    width:380px;
+    width:min(380px, calc(100vw - 40px));
     max-height:calc(100vh - 104px);
     overflow-y:auto;
     background:var(--paper-hi);
@@ -278,6 +278,31 @@
   .stat-grid div span{ display:block; }
   .stat-grid .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:#5a625c; }
   .stat-grid .value{ font-family:'IBM Plex Mono', monospace; font-size:14px; margin-top:2px; }
+
+  .eco-card{
+    background:rgba(76,122,93,0.08);
+    border:1px solid rgba(76,122,93,0.2);
+    border-radius:8px;
+    padding:10px 12px;
+    margin:12px 0;
+  }
+  .eco-title{
+    font-size:11px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--moss);
+    margin-bottom:8px;
+  }
+  .eco-grid{
+    margin:0 !important;
+    padding:0 !important;
+    border:none !important;
+  }
+  .eco-val{
+    color:var(--canopy-dark);
+    font-weight:600;
+  }
 
   .close-btn{
     position:absolute; top:10px; right:10px;
@@ -521,23 +546,54 @@
   }
   #sidebar-search:focus{ border-color:var(--moss); }
 
-  /* ---- place mode toggle ---- */
-  .place-mode-btn{
+  /* ---- map controls group & satellite toggle ---- */
+  .map-controls-group{
     position:absolute;
-    top:10px; right:10px;
+    top:140px; right:10px;
     z-index:5;
-    padding:8px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    align-items:flex-end;
+  }
+  .map-style-btn{
+    padding:8px 12px;
+    background:var(--paper-hi);
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-radius:8px;
+    cursor:pointer;
+    box-shadow:0 2px 8px rgba(0,0,0,0.18);
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    transition:all 0.15s ease;
+  }
+  .map-style-btn:hover{ background:var(--paper); }
+  .map-style-btn.active{
+    background:var(--canopy-dark);
+    color:var(--paper-hi);
+    border-color:var(--moss);
+  }
+  .place-mode-btn{
+    padding:8px 10px;
     background:var(--moss);
     color:white;
     border:none;
-    border-radius:6px;
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-    font-size:13px;
+    border-radius:8px;
     cursor:pointer;
     box-shadow:0 2px 8px rgba(0,0,0,0.2);
     transition:background 0.15s;
+    display:flex;
+    align-items:center;
+    gap:3px;
+    line-height:1;
   }
+  .place-mode-btn .tree-icon{ width:22px; height:22px; }
+  .place-mode-btn .plus-sign{ font-size:17px; font-weight:700; }
   .place-mode-btn:hover{ background:#3f6a4f; }
   .place-mode-btn.active{ background:#e07a2f; }
   .place-mode-btn.active:hover{ background:#c96a20; }
@@ -666,7 +722,21 @@
   </div>
 
   <div style="position:relative;">
-    <button id="place-mode-btn" class="admin-only place-mode-btn" onclick="togglePlaceMode()">📍 Dodaj stablo</button>
+    <div class="map-controls-group">
+      <button id="map-style-toggle" class="map-style-btn" onclick="toggleMapStyle()">
+        📡 Satelit
+      </button>
+      <button id="place-mode-btn" class="admin-only place-mode-btn" onclick="togglePlaceMode()">
+        <svg class="tree-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          <circle cx="12" cy="7.2" r="4.6" fill="currentColor"/>
+          <circle cx="7.4" cy="10" r="3.1" fill="currentColor"/>
+          <circle cx="16.6" cy="10" r="3.1" fill="currentColor"/>
+        </svg>
+        <span class="plus-sign">+</span>
+      </button>
+    </div>
     <div id="map"></div>
 
     <div id="detail">
@@ -683,6 +753,15 @@
           <div><span class="label">Zasađeno</span><span class="value" id="d-planted"></span></div>
           <div><span class="label">Stanje</span><span class="value" id="d-health"></span></div>
         </div>
+
+        <div class="eco-card">
+          <div class="eco-title">🌿 Ekološki uticaj (procjena)</div>
+          <div class="stat-grid eco-grid">
+            <div><span class="label">Apsorpcija CO₂</span><span class="value eco-val" id="d-co2">—</span></div>
+            <div><span class="label">Površina hlada</span><span class="value eco-val" id="d-shade">—</span></div>
+          </div>
+        </div>
+
         <p id="d-notes" class="d-notes"></p>
 
         <!-- Edit section (hidden until "Uredi" is clicked) -->
@@ -896,6 +975,22 @@ if (typeof maplibregl === 'undefined') {
       type: 'vector',
       url: 'https://tiles.openfreemap.org/planet'
     });
+
+    map.addSource('esri-satellite', {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      attribution: 'Tiles &copy; Esri'
+    });
+
+    map.addLayer({
+      id: 'satellite-layer',
+      type: 'raster',
+      source: 'esri-satellite',
+      layout: { visibility: 'none' },
+      paint: { 'raster-opacity': 1.0 }
+    }, labelLayerId);
+
     map.addLayer({
       id: '3d-buildings',
       source: 'openfreemap-buildings',
@@ -920,6 +1015,19 @@ if (typeof maplibregl === 'undefined') {
     }, labelLayerId);
   });
 }
+
+let isSatellite = false;
+window.toggleMapStyle = function(){
+  isSatellite = !isSatellite;
+  const btn = document.getElementById('map-style-toggle');
+  if (btn) {
+    btn.classList.toggle('active', isSatellite);
+    btn.innerHTML = isSatellite ? '🗺️ Mape' : '📡 Satelit';
+  }
+  if (map && map.getLayer('satellite-layer')) {
+    map.setLayoutProperty('satellite-layer', 'visibility', isSatellite ? 'visible' : 'none');
+  }
+};
 
 window.addEventListener('trees-ready', () => {
 const trees = window.trees;
@@ -1109,6 +1217,9 @@ window.filterSidebar = function(query) {
   document.querySelectorAll('.district-group').forEach(group => {
     const visible = group.querySelectorAll('.tree-item:not([style*="display: none"])');
     group.style.display = visible.length === 0 ? 'none' : '';
+    if (q !== '' && visible.length > 0) {
+      group.classList.remove('collapsed');
+    }
   });
 };
 
@@ -1165,7 +1276,9 @@ window.togglePlaceMode = function(){
   const btn = document.getElementById('place-mode-btn');
   if (btn) {
     btn.classList.toggle('active', placeMode);
-    btn.textContent = placeMode ? '✕ Otkaži' : '📍 Dodaj stablo';
+    btn.innerHTML = placeMode
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      : '<svg class="tree-icon" viewBox="0 0 24 24" fill="none"><path d="M12 21V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="12" cy="7.2" r="4.6" fill="currentColor"/><circle cx="7.4" cy="10" r="3.1" fill="currentColor"/><circle cx="16.6" cy="10" r="3.1" fill="currentColor"/></svg><span class="plus-sign">+</span>';
   }
   if (!placeMode) removePlacementMarker();
 };
@@ -1342,12 +1455,35 @@ window.addTreeAt = async function() {
   } catch(err) {
     alert('Neočekivana greška: ' + err.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Dodaj stablo'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="tree-icon" viewBox="0 0 24 24" fill="none"><path d="M12 21V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 16.5L8.3 13.2M12 16.5L15.7 13.2M12 13L9.4 10.2M12 13L14.6 10.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="12" cy="7.2" r="4.6" fill="currentColor"/><circle cx="7.4" cy="10" r="3.1" fill="currentColor"/><circle cx="16.6" cy="10" r="3.1" fill="currentColor"/></svg><span class="plus-sign">+</span>'; }
   }
 };
 
 // ---- EDIT functionality (admin only) ----
 let editingTreeId = null;
+
+// ---- ecological metrics calculator ----
+function calcTreeEcoMetrics(tree) {
+  const h = parseFloat(tree.height) || 8.0;
+  const d = parseFloat(tree.trunk) || 25.0;
+  const hFactors = { healthy: 1.0, stressed: 0.7, diseased: 0.4, dead: 0.0, removed: 0.0 };
+  const hFactor = hFactors[tree.health] !== undefined ? hFactors[tree.health] : 1.0;
+
+  let speciesFactor = 1.0;
+  const latin = (tree.latin || '').toLowerCase();
+  if (latin.includes('platanus') || latin.includes('acer')) speciesFactor = 1.15;
+
+  const rCrown = Math.max(1.2, 0.18 * h + 0.02 * d);
+  const shadeArea = Math.PI * Math.pow(rCrown, 2);
+
+  const co2Base = 22.0 * Math.pow(d / 25.0, 1.35) * Math.pow(h / 10.0, 0.55);
+  const co2Annual = co2Base * speciesFactor * hFactor;
+
+  return {
+    co2: hFactor === 0 ? '0 kg/god' : `~${co2Annual.toFixed(1)} kg/god`,
+    shade: `~${shadeArea.toFixed(1)} m²`
+  };
+}
 
 function selectTree(id, fly){
   const t = trees.find(x => x.id === id);
@@ -1366,6 +1502,10 @@ function selectTree(id, fly){
   document.getElementById('d-planted').textContent = t.planted ? t.planted + '.' : '—';
   document.getElementById('d-health').textContent = healthLabel[t.health] || t.health || '—';
   document.getElementById('d-notes').textContent = t.notes || 'Nema dodatnih napomena.';
+
+  const eco = calcTreeEcoMetrics(t);
+  document.getElementById('d-co2').textContent = eco.co2;
+  document.getElementById('d-shade').textContent = eco.shade;
 
   const frame = document.getElementById('model-frame');
   if (t.model) {
@@ -1623,6 +1763,9 @@ window.cancelEdit = function(){
 };
 
 function closeDetail(){
+  if (editingTreeId) {
+    cancelEdit();
+  }
   if (activeMarker) {
     const el = activeMarker.getElement().querySelector('.tree-marker');
     if (el) el.classList.remove('selected');
