@@ -976,14 +976,17 @@ if (typeof maplibregl === 'undefined') {
     showUserHeading: true,
     showAccuracyCircle: true
   });
-  let initialGeolocate = true;
+  let pendingFlyTo = false;
+  geolocateControl.on('trackuserlocationstart', () => {
+    pendingFlyTo = true;
+  });
   geolocateControl.on('geolocate', (e) => {
-    if (initialGeolocate) {
-      initialGeolocate = false;
+    if (pendingFlyTo) {
+      pendingFlyTo = false;
       map.flyTo({
         center: [e.coords.longitude, e.coords.latitude],
-        zoom: 18,
-        duration: 1200
+        zoom: 16,
+        duration: 2200
       });
     }
   });
