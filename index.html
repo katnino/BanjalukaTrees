@@ -970,12 +970,24 @@ if (typeof maplibregl === 'undefined') {
     canvasContextAttributes: { antialias: true }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
-  map.addControl(new maplibregl.GeolocateControl({
+  const geolocateControl = new maplibregl.GeolocateControl({
     positionOptions: { enableHighAccuracy: true },
     trackUserLocation: true,
     showUserHeading: true,
     showAccuracyCircle: true
-  }));
+  });
+  let initialGeolocate = true;
+  geolocateControl.on('geolocate', (e) => {
+    if (initialGeolocate) {
+      initialGeolocate = false;
+      map.flyTo({
+        center: [e.coords.longitude, e.coords.latitude],
+        zoom: 18,
+        duration: 1200
+      });
+    }
+  });
+  map.addControl(geolocateControl);
 
   // 3D buildings — OpenFreeMap's "bright" style doesn't ship extrusion by
   // default, so add it from the same vector source. render_height /
