@@ -183,21 +183,22 @@
   }
   .tree-marker .marker-ring{
     position:absolute;
-    top:-6px; left:-6px;
-    width:34px; height:34px;
+    top:-9px; left:-9px;
+    width:40px; height:40px;
     border-radius:50%;
-    border:2px solid var(--amber);
+    border:3px solid #f0b24f;
+    box-shadow:0 0 0 4px rgba(240,178,79,0.14);
     opacity:0;
     pointer-events:none;
   }
   .tree-marker.selected .marker-ring{
     opacity:1;
-    animation: tree-pulse 1.5s ease-out infinite;
+    animation: tree-pulse 2.1s ease-out infinite;
   }
   @keyframes tree-pulse{
-    0%   { transform:scale(0.6); opacity:0.9; }
-    70%  { transform:scale(1.15); opacity:0; }
-    100% { transform:scale(1.15); opacity:0; }
+    0%   { transform:scale(0.55); opacity:0.95; box-shadow:0 0 0 4px rgba(240,178,79,0.2); }
+    55%  { transform:scale(1.2); opacity:0.35; box-shadow:0 0 0 9px rgba(240,178,79,0.12); }
+    100% { transform:scale(1.45); opacity:0; box-shadow:0 0 0 13px rgba(240,178,79,0); }
   }
   .tree-marker.draggable{ cursor:grab; }
   .tree-marker.draggable:active{ cursor:grabbing; }
@@ -1050,6 +1051,12 @@ if (typeof maplibregl === 'undefined') {
 }
 
 let isSatellite = false;
+function getFocusZoom(){
+  // Satellite imagery in this area stops looking reliable at the default
+  // close-in zoom, so keep a slightly wider view when the raster layer is on.
+  return isSatellite ? 17.0 : 17.5;
+}
+
 window.toggleMapStyle = function(){
   isSatellite = !isSatellite;
   const btn = document.getElementById('map-style-toggle');
@@ -1394,7 +1401,7 @@ map.on('click', function(e) {
   placementMarker = new maplibregl.Marker({ element: createPlacementElement(), draggable: true })
     .setLngLat(e.lngLat)
     .addTo(map);
-  map.flyTo({ center: [e.lngLat.lng, e.lngLat.lat], zoom: 18.5, duration: 600 });
+  map.flyTo({ center: [e.lngLat.lng, e.lngLat.lat], zoom: getFocusZoom(), duration: 600 });
 
   const speciesOptions = (window.speciesList || [])
     .map(s => `<option value="${s.id}">${escapeHtml(s.local_name || s.latin_name)}</option>`)
@@ -1645,7 +1652,7 @@ function selectTree(id, fly){
 
   if (window.innerWidth <= 780) window.toggleSidebar(false);
 
-  if (fly) map.flyTo({ center: [t.lng, t.lat], zoom: 17.5, duration: 900 });
+  if (fly) map.flyTo({ center: [t.lng, t.lat], zoom: getFocusZoom(), duration: 900 });
 }
 
 function enableEdit(){
