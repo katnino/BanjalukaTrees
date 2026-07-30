@@ -186,8 +186,8 @@
     top:-9px; left:-9px;
     width:40px; height:40px;
     border-radius:50%;
-    border:3px solid #f0b24f;
-    box-shadow:0 0 0 4px rgba(240,178,79,0.14);
+    border:3px solid #f6ff4a;
+    box-shadow:0 0 0 4px rgba(246,255,74,0.22), 0 0 12px rgba(246,255,74,0.35);
     opacity:0;
     pointer-events:none;
   }
@@ -196,9 +196,9 @@
     animation: tree-pulse 2.1s ease-out infinite;
   }
   @keyframes tree-pulse{
-    0%   { transform:scale(0.55); opacity:0.95; box-shadow:0 0 0 4px rgba(240,178,79,0.2); }
-    55%  { transform:scale(1.2); opacity:0.35; box-shadow:0 0 0 9px rgba(240,178,79,0.12); }
-    100% { transform:scale(1.45); opacity:0; box-shadow:0 0 0 13px rgba(240,178,79,0); }
+    0%   { transform:scale(0.55); opacity:0.98; box-shadow:0 0 0 4px rgba(246,255,74,0.34), 0 0 14px rgba(246,255,74,0.42); }
+    55%  { transform:scale(1.2); opacity:0.48; box-shadow:0 0 0 10px rgba(246,255,74,0.18), 0 0 18px rgba(246,255,74,0.28); }
+    100% { transform:scale(1.45); opacity:0; box-shadow:0 0 0 14px rgba(246,255,74,0), 0 0 22px rgba(246,255,74,0); }
   }
   .tree-marker.draggable{ cursor:grab; }
   .tree-marker.draggable:active{ cursor:grabbing; }
