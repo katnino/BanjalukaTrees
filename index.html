@@ -250,10 +250,13 @@
     z-index:5;
   }
   #detail.open{ transform:translateX(0); }
+  #detail.collapsed .model-frame,
+  #detail.collapsed .body{
+    display:none;
+  }
   /* ensure map canvas stays behind the detail panel */
   #map .maplibregl-canvas-container { z-index: 0; }
   #detail { z-index: 10; }
-
 
   #detail .model-frame{
     width:100%; height:220px;
@@ -329,6 +332,26 @@
     border:none; cursor:pointer; font-size:16px;
     display:flex; align-items:center; justify-content:center;
     z-index:2;
+  }
+
+  .collapse-btn{
+    position:absolute;
+    top:10px;
+    right:46px;
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.22);
+    background:rgba(255,255,255,0.12);
+    color:var(--ink);
+    cursor:pointer;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    line-height:1;
+    z-index:2;
+    backdrop-filter:blur(8px);
   }
 
   .add-btn{
@@ -550,6 +573,20 @@
     #login-btn .login-label{ display:none; }
   }
 
+  @media (max-width: 520px){
+    #detail{
+      max-height:min(56vh, calc(100dvh - 124px));
+    }
+    #detail.collapsed{
+      max-height:96px;
+      overflow:hidden;
+    }
+    #detail.collapsed .close-btn{
+      top:12px;
+    }
+    .collapse-btn{ display:flex; }
+  }
+
   /* ---- sidebar search ---- */
   #sidebar-search{
     width:calc(100% - 36px);
@@ -759,6 +796,7 @@
     <div id="map"></div>
 
     <div id="detail">
+      <button class="collapse-btn" onclick="toggleDetailCollapse()" aria-expanded="true" aria-label="Smanji panel detalja">▾</button>
       <button class="close-btn" onclick="closeDetail()">✕</button>
       <div class="model-frame" id="model-frame">
         <div class="no-scan">Za ovo stablo još nema 3D skena.</div>
@@ -1576,6 +1614,26 @@ function calcTreeEcoMetrics(tree) {
   };
 }
 
+function setDetailCollapsed(collapsed){
+  const detail = document.getElementById('detail');
+  const btn = document.querySelector('.collapse-btn');
+  if (!detail) return;
+
+  detail.classList.toggle('collapsed', !!collapsed);
+  if (btn) {
+    btn.textContent = collapsed ? '▴' : '▾';
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.setAttribute('aria-label', collapsed ? 'Proširi panel detalja' : 'Smanji panel detalja');
+  }
+}
+
+window.toggleDetailCollapse = function(force){
+  const detail = document.getElementById('detail');
+  if (!detail) return;
+  const shouldCollapse = (typeof force === 'boolean') ? force : !detail.classList.contains('collapsed');
+  setDetailCollapsed(shouldCollapse);
+};
+
 function selectTree(id, fly){
   const t = trees.find(x => x.id === id);
   if (!t) return;
@@ -1649,6 +1707,7 @@ function selectTree(id, fly){
   activeMarker = t._marker;
 
   document.getElementById('detail').classList.add('open');
+  setDetailCollapsed(false);
 
   if (window.innerWidth <= 780) window.toggleSidebar(false);
 
@@ -1871,6 +1930,7 @@ function closeDetail(){
   document.getElementById('d-edit-section').style.display = 'none';
   const editBtn = document.getElementById('d-edit-btn');
   if (editBtn) editBtn.style.display = 'none';
+  setDetailCollapsed(false);
   editingTreeId = null;
 }
 
