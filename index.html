@@ -258,6 +258,16 @@
   #detail.collapsed .body{
     display:none;
   }
+  /* Desktop/tablet (side-panel layout, >780px): collapsing hides the model
+     frame and body above, so give the panel a fixed slim height for a clean
+     bar instead of an odd near-empty box. Scoped separately from the
+     ≤520px mobile rule below, which handles the bottom-sheet layout. */
+  @media (min-width: 781px){
+    #detail.collapsed{
+      max-height:52px;
+      overflow:hidden;
+    }
+  }
   /* ensure map canvas stays behind the detail panel */
   #map .maplibregl-canvas-container { z-index: 0; }
   #detail { z-index: 10; }
@@ -349,7 +359,7 @@
     background:rgba(255,255,255,0.12);
     color:var(--ink);
     cursor:pointer;
-    display:none;
+    display:flex;
     align-items:center;
     justify-content:center;
     font-size:16px;
