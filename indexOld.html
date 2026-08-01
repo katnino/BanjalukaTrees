@@ -67,6 +67,16 @@
     grid-template-rows: 64px 1fr;
     height:100vh;
     width:100vw;
+    transition: grid-template-columns 0.25s ease;
+  }
+  @media (min-width: 781px){
+    #app.sidebar-collapsed{
+      grid-template-columns: 0px 1fr;
+    }
+    #app.sidebar-collapsed #sidebar{
+      overflow:hidden;
+      border-right:none;
+    }
   }
 
   header{
@@ -264,7 +274,7 @@
      ≤520px mobile rule below, which handles the bottom-sheet layout. */
   @media (min-width: 781px){
     #detail.collapsed{
-      max-height:52px;
+      max-height:60px;
       overflow:hidden;
     }
   }
@@ -349,24 +359,27 @@
   }
 
   .collapse-btn{
-    position:absolute;
-    top:10px;
-    right:46px;
-    width:28px;
-    height:28px;
-    border-radius:50%;
-    border:1px solid rgba(255,255,255,0.22);
-    background:rgba(255,255,255,0.12);
-    color:var(--ink);
+    position:sticky;
+    bottom:0;
+    left:0;
+    width:100%;
+    padding:9px 0;
+    border:none;
+    border-top:1px solid var(--line);
+    background:var(--paper-hi);
+    color:var(--moss);
     cursor:pointer;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:16px;
-    line-height:1;
-    z-index:2;
-    backdrop-filter:blur(8px);
+    gap:6px;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:0.01em;
+    z-index:3;
   }
+  .collapse-btn:hover{ background:var(--paper); }
 
   .add-btn{
     margin:16px 18px;
@@ -500,7 +513,7 @@
     #model-modal .modal-inner{ width:94vw; height:60vh; }
   }
 
-  /* hamburger — hidden on desktop */
+  /* hamburger — mobile drawer only */
   #hamburger-btn{
     display:none;
     background:rgba(255,255,255,0.08);
@@ -513,6 +526,38 @@
     cursor:pointer;
     flex-shrink:0;
     margin-right:10px;
+  }
+
+  /* desktop sidebar collapse tab — attached to the sidebar/map border,
+     doesn't touch the header at all */
+  #sidebar-toggle{
+    display:none;
+    position:fixed;
+    top:50%;
+    left:340px;
+    transform:translate(-50%,-50%);
+    width:22px;
+    height:60px;
+    background:#f5c518;
+    color:#1c2420;
+    border:1px solid #d9ac00;
+    border-radius:0 8px 8px 0;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    font-size:14px;
+    font-weight:700;
+    z-index:20;
+    box-shadow:2px 0 10px rgba(0,0,0,0.25);
+    transition:left 0.25s ease, background 0.15s ease;
+  }
+  #sidebar-toggle:hover{ background:#ffd83d; }
+  @media (min-width: 781px){
+    #sidebar-toggle{ display:flex; }
+  }
+  #app.sidebar-collapsed #sidebar-toggle{
+    left:0;
+    border-radius:0 8px 8px 0;
   }
 
   #sidebar-backdrop{
@@ -762,6 +807,7 @@
   </header>
 
   <div id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
+  <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Sakrij/prikaži listu stabala">‹</button>
 
   <div id="sidebar">
     <div id="loading-banner" style="padding:24px 18px;text-align:center;color:var(--moss);font-size:13px;">Učitavam podatke...</div>
@@ -795,7 +841,6 @@
     <div id="map"></div>
 
     <div id="detail">
-      <button class="collapse-btn" onclick="toggleDetailCollapse()" aria-expanded="true" aria-label="Smanji panel detalja">▾</button>
       <button class="close-btn" onclick="closeDetail()">✕</button>
       <div class="model-frame" id="model-frame">
         <div class="no-scan">Za ovo stablo još nema 3D skena.</div>
@@ -858,6 +903,8 @@
           <button id="d-delete-btn" onclick="deleteTree()" class="edit-btn-danger">🗑 Obriši stablo</button>
         </div>
       </div>
+      <button class="collapse-btn" onclick="toggleDetailCollapse()" aria-expanded="true" aria-label="Smanji panel detalja">▾ Sakrij detalje</button>
+    </div>
     </div>
   </div>
 </div>
@@ -1204,8 +1251,16 @@ function refreshAdminUI(){
 
 refreshAdminUI();
 
-// ---- mobile sidebar drawer ----
+// ---- sidebar drawer (mobile overlay) / collapse (desktop edge tab) ----
 window.toggleSidebar = function(force){
+  if (window.innerWidth > 780) {
+    const app = document.getElementById('app');
+    const shouldOpen = (typeof force === 'boolean') ? force : app.classList.contains('sidebar-collapsed');
+    app.classList.toggle('sidebar-collapsed', !shouldOpen);
+    const tab = document.getElementById('sidebar-toggle');
+    if (tab) tab.textContent = shouldOpen ? '‹' : '›';
+    return;
+  }
   const sidebar = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
   const shouldOpen = (typeof force === 'boolean') ? force : !sidebar.classList.contains('open');
@@ -1626,7 +1681,7 @@ function setDetailCollapsed(collapsed){
 
   detail.classList.toggle('collapsed', !!collapsed);
   if (btn) {
-    btn.textContent = collapsed ? '▴' : '▾';
+    btn.textContent = collapsed ? '▴ Prikaži detalje' : '▾ Sakrij detalje';
     btn.setAttribute('aria-expanded', String(!collapsed));
     btn.setAttribute('aria-label', collapsed ? 'Proširi panel detalja' : 'Smanji panel detalja');
   }
